@@ -17,5 +17,8 @@
     <ClInclude Include="sources\XLibrary11.hpp">
       <Filter>sources</Filter>
     </ClInclude>
+    <ClInclude Include="sources\Model.hpp">
+      <Filter>sources</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
