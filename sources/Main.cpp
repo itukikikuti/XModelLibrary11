@@ -11,9 +11,24 @@ using namespace XLibrary11;
 int Main() {
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 
-	Model model(L"a;laefal;jlfw");
+	Camera camera;
+	Model model(L"assets/monkey.fbx");
+	Texture texture(L"assets/box.jpg");
+
+	camera.position = Float3(0.0f, 2.0f, -5.0f);
+	camera.angles.x = 20.0f;
+	for (int i = 0; i < model.meshes.size(); i++) {
+		model.meshes[i]->material.Load(L"assets/test.hlsl");
+		//model.meshes[i]->material.SetTexture(0, &texture);
+	}
 
 	while (App::Refresh()) {
+		camera.Update();
+
+		for (int i = 0; i < model.meshes.size(); i++) {
+			model.meshes[i]->angles.y += App::GetDeltaTime() * 50.0f;
+		}
+		model.Draw();
 	}
 
 	return 0;
