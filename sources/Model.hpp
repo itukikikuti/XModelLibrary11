@@ -36,6 +36,7 @@ class Model {
 		size_t length = wcslen(filePath) + 1;
 		std::unique_ptr<char[]> cFilePath(new char[length]);
 		wcstombs_s(nullptr, cFilePath.get(), length, filePath, _TRUNCATE);
+
 		importer->Initialize(cFilePath.get(), -1, manager->GetIOSettings());
 
 		std::unique_ptr<fbxsdk::FbxScene, decltype(&DeleteFbxScene)> scene(fbxsdk::FbxScene::Create(manager.get(), ""), DeleteFbxScene);
@@ -43,7 +44,7 @@ class Model {
 
 		fbxsdk::FbxGeometryConverter converter(manager.get());
 		converter.Triangulate(scene.get(), true);
-		
+
 		fbxsdk::FbxNode* rootNode = scene->GetRootNode();
 		LoadMeshRecursively(rootNode);
 	}

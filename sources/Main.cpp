@@ -15,11 +15,11 @@ int Main() {
 	Model model(L"assets/monkey.fbx");
 	Texture texture(L"assets/box.jpg");
 
-	camera.position = Float3(0.0f, 2.0f, -5.0f);
+	camera.position = Float3(0.0f, 1.0f, -2.0f);
 	camera.angles.x = 20.0f;
 	for (int i = 0; i < model.meshes.size(); i++) {
 		model.meshes[i]->material.Load(L"assets/test.hlsl");
-		//model.meshes[i]->material.SetTexture(0, &texture);
+		model.meshes[i]->SetCullingMode(D3D11_CULL_FRONT);
 	}
 
 	while (App::Refresh()) {
