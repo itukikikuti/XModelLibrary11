@@ -2,6 +2,7 @@
 #define XLIBRARY_NAMESPACE_END
 #include "XLibrary11.hpp"
 #include "Model.hpp"
+#include "Library.cpp"
 #include <crtdbg.h>
 
 using namespace std;
@@ -9,6 +10,7 @@ using namespace DirectX;
 using namespace XLibrary11;
 
 int Main() {
+	Library::Generate(L"sources/Model.hpp", L"XModelLibrary11.hpp");
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 
 	Camera camera;
