@@ -2,18 +2,17 @@
 #pragma once
 
 #define OEMRESOURCE
+#include <windows.h>
 #include <d3d11.h>
 #include <d3dcompiler.h>
-#include <DirectXMath.h>
-#include <fstream>
-#include <iostream>
-#include <memory>
-#include <strsafe.h>
-#include <utility>
-#include <vector>
 #include <wincodec.h>
-#include <windows.h>
+#include <DirectXMath.h>
 #include <wrl.h>
+#include <memory>
+#include <vector>
+#include <fstream>
+#include <functional>
+#include <strsafe.h>
 #pragma comment(lib, "d3d11.lib")
 #pragma comment(lib, "d3dcompiler.lib")
 
@@ -349,7 +348,6 @@ class App {
 class Window {
 	PRIVATE HWND handle;
 	PRIVATE const DWORD style = WS_OVERLAPPEDWINDOW;
-	PRIVATE std::vector<UINT> messages;
 
 	PUBLIC Window() {
 		HINSTANCE instance = GetModuleHandleW(nullptr);
@@ -357,7 +355,7 @@ class Window {
 		WNDCLASSEXW windowClass = {};
 		windowClass.cbSize = sizeof(WNDCLASSEXW);
 		windowClass.style = CS_HREDRAW | CS_VREDRAW;
-		windowClass.lpfnWndProc = Procedure;
+		windowClass.lpfnWndProc = Proceed;
 		windowClass.cbClsExtra = 0;
 		windowClass.cbWndExtra = 0;
 		windowClass.hInstance = instance;
@@ -372,18 +370,12 @@ class Window {
 		handle = CreateWindowW(App::name, App::name, style, CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, nullptr, nullptr, instance, nullptr);
 
 		SetSize(1280.0f, 720.0f);
-
 		ShowWindow(handle, SW_SHOWNORMAL);
-
-		SetWindowLongPtrW(handle, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 	}
 	PUBLIC ~Window() {
 	}
 	PUBLIC HWND GetHandle() {
 		return handle;
-	}
-	PUBLIC std::vector<UINT>& GetMessages() {
-		return messages;
 	}
 	PUBLIC Float2 GetSize() {
 		RECT clientRect = {};
@@ -429,10 +421,11 @@ class Window {
 			SetSize(size.x, size.y);
 		}
 	}
+	PUBLIC void RegisterProcedure(const std::function<void(HWND, UINT, WPARAM, LPARAM)>& procedure) {
+		GetProcedures().push_back(procedure);
+	}
 	PUBLIC bool Update() {
 		static MSG message = {};
-
-		messages.clear();
 
 		while (message.message != WM_QUIT) {
 			if (PeekMessageW(&message, nullptr, 0, 0, PM_REMOVE)) {
@@ -446,22 +439,18 @@ class Window {
 
 		return false;
 	}
-	PRIVATE LRESULT Proceed(HWND handle, UINT message, WPARAM wParam, LPARAM lParam) {
-		messages.push_back(message);
-
+	PRIVATE static std::vector<std::function<void(HWND, UINT, WPARAM, LPARAM)>>& GetProcedures() {
+		static std::vector<std::function<void(HWND, UINT, WPARAM, LPARAM)>> procedures;
+		return procedures;
+	}
+	PRIVATE static LRESULT WINAPI Proceed(HWND handle, UINT message, WPARAM wParam, LPARAM lParam) {
+		for (std::function<void(HWND, UINT, WPARAM, LPARAM)> onProceed : GetProcedures()) {
+			onProceed(handle, message, wParam, lParam);
+		}
 		switch (message) {
 		case WM_DESTROY:
 			PostQuitMessage(0);
 			break;
-		default:
-			return DefWindowProcW(handle, message, wParam, lParam);
-		}
-		return 0;
-	}
-	PRIVATE static LRESULT WINAPI Procedure(HWND handle, UINT message, WPARAM wParam, LPARAM lParam) {
-		Window* window = (Window*)(GetWindowLongPtrW(handle, GWLP_USERDATA));
-		if (window) {
-			return window->Proceed(handle, message, wParam, lParam);
 		}
 		return DefWindowProcW(handle, message, wParam, lParam);
 	}
@@ -660,9 +649,6 @@ class Timer {
 	PUBLIC static HWND GetWindowHandle() {
 		return GetWindow().GetHandle();
 	}
-	PUBLIC static std::vector<UINT>& GetWindowMessages() {
-		return GetWindow().GetMessages();
-	}
 	PUBLIC static Float2 GetWindowSize() {
 		return GetWindow().GetSize();
 	}
@@ -677,6 +663,9 @@ class Timer {
 	}
 	PUBLIC static void SetFullScreen(bool isFullscreen) {
 		GetWindow().SetFullScreen(isFullscreen);
+	}
+	PUBLIC static void RegisterProcedure(const std::function<void(HWND, UINT, WPARAM, LPARAM)>& procedure) {
+		GetWindow().RegisterProcedure(procedure);
 	}
 	PUBLIC static ID3D11Device& GetGraphicsDevice() {
 		return GetGraphics().GetDevice();
@@ -1001,8 +990,6 @@ class Camera {
 		constant.projection = DirectX::XMMatrixPerspectiveFovLH(DirectX::XMConvertToRadians(fieldOfView), App::GetWindowSize().x / (float)App::GetWindowSize().y, nearClip, farClip);
 	}
 	PUBLIC virtual void Update() {
-		TryResize();
-
 		constant.view =
 			DirectX::XMMatrixRotationZ(DirectX::XMConvertToRadians(angles.z)) *
 			DirectX::XMMatrixRotationY(DirectX::XMConvertToRadians(angles.y)) *
@@ -1028,6 +1015,8 @@ class Camera {
 		angles = Float3(0.0f, 0.0f, 0.0f);
 
 		SetPerspective(60.0f, 0.1f, 1000.0f);
+
+		App::RegisterProcedure([this](HWND hwnd, UINT msg, WPARAM w, LPARAM l) { OnProceed(hwnd, msg, w, l); });
 	}
 	PROTECTED void Setup() {
 		renderTexture.Reset();
@@ -1082,32 +1071,29 @@ class Camera {
 		constantBufferDesc.CPUAccessFlags = 0;
 		App::GetGraphicsDevice().CreateBuffer(&constantBufferDesc, nullptr, constantBuffer.GetAddressOf());
 	}
-	PROTECTED void TryResize() {
-		for (UINT message : App::GetWindowMessages()) {
-			if (message != WM_SIZE) {
-				continue;
-			}
-			if (App::GetWindowSize().x <= 0.0f || App::GetWindowSize().y <= 0.0f) {
-				continue;
-			}
-			
-			DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
-			App::GetGraphicsMemory().GetDesc(&swapChainDesc);
-
-			Microsoft::WRL::ComPtr<ID3D11RenderTargetView> nullRenderTarget = nullptr;
-			Microsoft::WRL::ComPtr<ID3D11DepthStencilView> nullDepthStencil = nullptr;
-			App::GetGraphicsContext().OMSetRenderTargets(1, nullRenderTarget.GetAddressOf(), nullDepthStencil.Get());
-			renderTargetView.Reset();
-			depthStencilView.Reset();
-			renderTexture.Reset();
-			depthTexture.Reset();
-			App::GetGraphicsContext().Flush();
-			App::GetGraphicsMemory().ResizeBuffers(swapChainDesc.BufferCount, static_cast<UINT>(App::GetWindowSize().x), static_cast<UINT>(App::GetWindowSize().y), swapChainDesc.BufferDesc.Format, swapChainDesc.Flags);
-
-			SetPerspective(fieldOfView, nearClip, farClip);
-			Setup();
+	PROTECTED void OnProceed(HWND handle, UINT message, WPARAM wParam, LPARAM lParam) {
+		if (message != WM_SIZE) {
 			return;
 		}
+		if (App::GetWindowSize().x <= 0.0f || App::GetWindowSize().y <= 0.0f) {
+			return;
+		}
+
+		DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
+		App::GetGraphicsMemory().GetDesc(&swapChainDesc);
+
+		Microsoft::WRL::ComPtr<ID3D11RenderTargetView> nullRenderTarget = nullptr;
+		Microsoft::WRL::ComPtr<ID3D11DepthStencilView> nullDepthStencil = nullptr;
+		App::GetGraphicsContext().OMSetRenderTargets(1, nullRenderTarget.GetAddressOf(), nullDepthStencil.Get());
+		renderTargetView.Reset();
+		depthStencilView.Reset();
+		renderTexture.Reset();
+		depthTexture.Reset();
+		App::GetGraphicsContext().Flush();
+		App::GetGraphicsMemory().ResizeBuffers(swapChainDesc.BufferCount, static_cast<UINT>(App::GetWindowSize().x), static_cast<UINT>(App::GetWindowSize().y), swapChainDesc.BufferDesc.Format, swapChainDesc.Flags);
+
+		SetPerspective(fieldOfView, nearClip, farClip);
+		Setup();
 	}
 };
 
@@ -1145,9 +1131,9 @@ class Mesh {
 			"    float4 normal : NORMAL;"
 			"    float2 uv : TEXCOORD;"
 			"};"
-			"VSOutput VS(float3 vertex : POSITION, float3 normal : NORMAL, float2 uv : TEXCOORD) {"
+			"VSOutput VS(float3 position : POSITION, float3 normal : NORMAL, float2 uv : TEXCOORD) {"
 			"    VSOutput output = (VSOutput)0;"
-			"    output.position = mul(_world, float4(vertex, 1.0));"
+			"    output.position = mul(_world, float4(position, 1.0));"
 			"    output.position = mul(_view, output.position);"
 			"    output.position = mul(_projection, output.position);"
 			"    output.normal = normalize(mul(_world, float4(normal, 1)));"
@@ -1155,7 +1141,7 @@ class Mesh {
 			"    return output;"
 			"}"
 			"float4 PS(VSOutput pixel) : SV_TARGET {"
-			"    float diffuse = dot(-_lightDirection, pixel.normal.xyz);"
+			"    float diffuse = dot(-_lightDirection, normalize(pixel.normal).xyz) + 0.25;"
 			"    return max(0, float4(tex.Sample(samp, pixel.uv).rgb * diffuse, 1));"
 			"}") {
 		Initialize();
@@ -1164,23 +1150,28 @@ class Mesh {
 	}
 	PUBLIC virtual ~Mesh() {
 	}
-	PUBLIC void CreateQuad(bool shouldClear = true) {
+	PUBLIC void CreateQuad(Float2 size, Float3 offset = Float3(0.0f, 0.0f, 0.0f), bool shouldClear = true, Float3 leftDirection = Float3(1.0f, 0.0f, 0.0f), Float3 upDirection = Float3(0.0f, 1.0f, 0.0f), Float3 forwardDirection = Float3(0.0f, 0.0f, 1.0f)) {
 		if (shouldClear) {
 			vertices.clear();
 			indices.clear();
 		}
 
-		vertices.push_back(Vertex(Float3(-0.5f, 0.5f, 0.0f), Float3(0.0f, 0.0f, -1.0f), Float2(0.0f, 0.0f)));
-		vertices.push_back(Vertex(Float3(0.5f, 0.5f, 0.0f), Float3(0.0f, 0.0f, -1.0f), Float2(1.0f, 0.0f)));
-		vertices.push_back(Vertex(Float3(-0.5f, -0.5f, 0.0f), Float3(0.0f, 0.0f, -1.0f), Float2(0.0f, 1.0f)));
-		vertices.push_back(Vertex(Float3(0.5f, -0.5f, 0.0f), Float3(0.0f, 0.0f, -1.0f), Float2(1.0f, 1.0f)));
+		leftDirection = DirectX::XMVector3Normalize(leftDirection);
+		upDirection = DirectX::XMVector3Normalize(upDirection);
+		forwardDirection = DirectX::XMVector3Normalize(forwardDirection);
 
-		indices.push_back(0);
-		indices.push_back(1);
-		indices.push_back(2);
-		indices.push_back(3);
-		indices.push_back(2);
-		indices.push_back(1);
+		vertices.push_back(Vertex(leftDirection * -size.x + upDirection * size.y + offset, -forwardDirection, Float2(0.0f, 0.0f)));
+		vertices.push_back(Vertex(leftDirection * size.x + upDirection * size.y + offset, -forwardDirection, Float2(1.0f, 0.0f)));
+		vertices.push_back(Vertex(leftDirection * -size.x + upDirection * -size.y + offset, -forwardDirection, Float2(0.0f, 1.0f)));
+		vertices.push_back(Vertex(leftDirection * size.x + upDirection * -size.y + offset, -forwardDirection, Float2(1.0f, 1.0f)));
+
+		size_t indexOffset = vertices.size() - 4;
+		indices.push_back(indexOffset + 0);
+		indices.push_back(indexOffset + 1);
+		indices.push_back(indexOffset + 2);
+		indices.push_back(indexOffset + 3);
+		indices.push_back(indexOffset + 2);
+		indices.push_back(indexOffset + 1);
 	}
 	PUBLIC void CreateCube(bool shouldClear = true) {
 		if (shouldClear) {
@@ -1188,77 +1179,18 @@ class Mesh {
 			indices.clear();
 		}
 
-		vertices.push_back(Vertex(Float3(-0.5f, 0.5f, -0.5f), Float3(0.0f, 0.0f, -1.0f), Float2(0.0f, 0.0f)));
-		vertices.push_back(Vertex(Float3(0.5f, 0.5f, -0.5f), Float3(0.0f, 0.0f, -1.0f), Float2(1.0f, 0.0f)));
-		vertices.push_back(Vertex(Float3(-0.5f, -0.5f, -0.5f), Float3(0.0f, 0.0f, -1.0f), Float2(0.0f, 1.0f)));
-		vertices.push_back(Vertex(Float3(0.5f, -0.5f, -0.5f), Float3(0.0f, 0.0f, -1.0f), Float2(1.0f, 1.0f)));
-
-		vertices.push_back(Vertex(Float3(0.5f, 0.5f, -0.5f), Float3(1.0f, 0.0f, 0.0f), Float2(0.0f, 0.0f)));
-		vertices.push_back(Vertex(Float3(0.5f, 0.5f, 0.5f), Float3(1.0f, 0.0f, 0.0f), Float2(1.0f, 0.0f)));
-		vertices.push_back(Vertex(Float3(0.5f, -0.5f, -0.5f), Float3(1.0f, 0.0f, 0.0f), Float2(0.0f, 1.0f)));
-		vertices.push_back(Vertex(Float3(0.5f, -0.5f, 0.5f), Float3(1.0f, 0.0f, 0.0f), Float2(1.0f, 1.0f)));
-		
-		vertices.push_back(Vertex(Float3(0.5f, 0.5f, 0.5f), Float3(0.0f, 0.0f, 1.0f), Float2(0.0f, 0.0f)));
-		vertices.push_back(Vertex(Float3(-0.5f, 0.5f, 0.5f), Float3(0.0f, 0.0f, 1.0f), Float2(1.0f, 0.0f)));
-		vertices.push_back(Vertex(Float3(0.5f, -0.5f, 0.5f), Float3(0.0f, 0.0f, 1.0f), Float2(0.0f, 1.0f)));
-		vertices.push_back(Vertex(Float3(-0.5f, -0.5f, 0.5f), Float3(0.0f, 0.0f, 1.0f), Float2(1.0f, 1.0f)));
-		
-		vertices.push_back(Vertex(Float3(-0.5f, 0.5f, 0.5f), Float3(-1.0f, 0.0f, 0.0f), Float2(0.0f, 0.0f)));
-		vertices.push_back(Vertex(Float3(-0.5f, 0.5f, -0.5f), Float3(-1.0f, 0.0f, 0.0f), Float2(1.0f, 0.0f)));
-		vertices.push_back(Vertex(Float3(-0.5f, -0.5f, 0.5f), Float3(-1.0f, 0.0f, 0.0f), Float2(0.0f, 1.0f)));
-		vertices.push_back(Vertex(Float3(-0.5f, -0.5f, -0.5f), Float3(-1.0f, 0.0f, 0.0f), Float2(1.0f, 1.0f)));
-		
-		vertices.push_back(Vertex(Float3(-0.5f, 0.5f, 0.5f), Float3(0.0f, 1.0f, 0.0f), Float2(0.0f, 0.0f)));
-		vertices.push_back(Vertex(Float3(0.5f, 0.5f, 0.5f), Float3(0.0f, 1.0f, 0.0f), Float2(1.0f, 0.0f)));
-		vertices.push_back(Vertex(Float3(-0.5f, 0.5f, -0.5f), Float3(0.0f, 1.0f, 0.0f), Float2(0.0f, 1.0f)));
-		vertices.push_back(Vertex(Float3(0.5f, 0.5f, -0.5f), Float3(0.0f, 1.0f, 0.0f), Float2(1.0f, 1.0f)));
-		
-		vertices.push_back(Vertex(Float3(-0.5f, -0.5f, -0.5f), Float3(0.0f, -1.0f, 0.0f), Float2(0.0f, 0.0f)));
-		vertices.push_back(Vertex(Float3(0.5f, -0.5f, -0.5f), Float3(0.0f, -1.0f, 0.0f), Float2(1.0f, 0.0f)));
-		vertices.push_back(Vertex(Float3(-0.5f, -0.5f, 0.5f), Float3(0.0f, -1.0f, 0.0f), Float2(0.0f, 1.0f)));
-		vertices.push_back(Vertex(Float3(0.5f, -0.5f, 0.5f), Float3(0.0f, -1.0f, 0.0f), Float2(1.0f, 1.0f)));
-
-		indices.push_back(0);
-		indices.push_back(1);
-		indices.push_back(2);
-		indices.push_back(3);
-		indices.push_back(2);
-		indices.push_back(1);
-
-		indices.push_back(4);
-		indices.push_back(5);
-		indices.push_back(6);
-		indices.push_back(7);
-		indices.push_back(6);
-		indices.push_back(5);
-
-		indices.push_back(8);
-		indices.push_back(9);
-		indices.push_back(10);
-		indices.push_back(11);
-		indices.push_back(10);
-		indices.push_back(9);
-
-		indices.push_back(12);
-		indices.push_back(13);
-		indices.push_back(14);
-		indices.push_back(15);
-		indices.push_back(14);
-		indices.push_back(13);
-
-		indices.push_back(16);
-		indices.push_back(17);
-		indices.push_back(18);
-		indices.push_back(19);
-		indices.push_back(18);
-		indices.push_back(17);
-
-		indices.push_back(20);
-		indices.push_back(21);
-		indices.push_back(22);
-		indices.push_back(23);
-		indices.push_back(22);
-		indices.push_back(21);
+		// front
+		CreateQuad(Float2(0.5f, 0.5f), Float3(0.0f, 0.0f, -0.5f), false, Float3(1.0f, 0.0f, 0.0f), Float3(0.0f, 1.0f, 0.0f), Float3(0.0f, 0.0f, 1.0f));
+		// back
+		CreateQuad(Float2(0.5f, 0.5f), Float3(0.0f, 0.0f, 0.5f), false, Float3(-1.0f, 0.0f, 0.0f), Float3(0.0f, 1.0f, 0.0f), Float3(0.0f, 0.0f, -1.0f));
+		// left
+		CreateQuad(Float2(0.5f, 0.5f), Float3(0.5f, 0.0f, 0.0f), false, Float3(0.0f, 0.0f, 1.0f), Float3(0.0f, 1.0f, 0.0f), Float3(-1.0f, 0.0f, 0.0f));
+		// right
+		CreateQuad(Float2(0.5f, 0.5f), Float3(-0.5f, 0.0f, 0.0f), false, Float3(0.0f, 0.0f, -1.0f), Float3(0.0f, 1.0f, 0.0f), Float3(1.0f, 0.0f, 0.0f));
+		// up
+		CreateQuad(Float2(0.5f, 0.5f), Float3(0.0f, 0.5f, 0.0f), false, Float3(1.0f, 0.0f, 0.0f), Float3(0.0f, 0.0f, 1.0f), Float3(0.0f, -1.0f, 0.0f));
+		// down
+		CreateQuad(Float2(0.5f, 0.5f), Float3(0.0f, -0.5f, 0.0f), false, Float3(1.0f, 0.0f, 0.0f), Float3(0.0f, 0.0f, -1.0f), Float3(0.0f, 1.0f, 0.0f));
 	}
 	PUBLIC void Apply() {
 		Setup();
@@ -1272,7 +1204,7 @@ class Mesh {
 			DirectX::XMMatrixRotationY(DirectX::XMConvertToRadians(angles.y)) *
 			DirectX::XMMatrixRotationX(DirectX::XMConvertToRadians(angles.x)) *
 			DirectX::XMMatrixTranslation(position.x, position.y, position.z);
-		DirectX::XMStoreFloat3(&constant.lightDirection, DirectX::XMVector3Normalize(DirectX::XMVectorSet(0.25f, -1.0f, 0.5f, 0.0f)));
+		constant.lightDirection = DirectX::XMVector3Normalize(DirectX::XMVectorSet(0.25f, -1.0f, 0.5f, 0.0f));
 
 		if (vertexBuffer == nullptr) {
 			return;
