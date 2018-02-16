@@ -11,27 +11,28 @@
 
 namespace XLibrary11 {
 
-void DeleteFbxManager(fbxsdk::FbxManager* fbxManager)
-{
-	fbxManager->Destroy();
-}
-
-void DeleteFbxImporter(fbxsdk::FbxImporter* fbxImporter)
-{
-	fbxImporter->Destroy();
-}
-
-void DeleteFbxScene(fbxsdk::FbxScene* fbxScene)
-{
-	fbxScene->Destroy();
-}
-
 class Model {
+	PROTECTED struct FbxManagerDeleter {
+		void operator()(fbxsdk::FbxManager* fbxManager) const {
+			fbxManager->Destroy();
+		}
+	};
+	PROTECTED struct FbxImporterDeleter {
+		void operator()(fbxsdk::FbxImporter* fbxImporter) const {
+			fbxImporter->Destroy();
+		}
+	};
+	PROTECTED struct FbxSceneDeleter {
+		void operator()(fbxsdk::FbxScene* fbxScene) const {
+			fbxScene->Destroy();
+		}
+	};
+
 	PUBLIC std::vector<std::unique_ptr<XLibrary11::Mesh>> meshes;
 
 	PUBLIC Model(wchar_t* filePath) {
-		std::unique_ptr<fbxsdk::FbxManager, decltype(&DeleteFbxManager)> manager(fbxsdk::FbxManager::Create(), DeleteFbxManager);
-		std::unique_ptr<fbxsdk::FbxImporter, decltype(&DeleteFbxImporter)> importer(fbxsdk::FbxImporter::Create(manager.get(), ""), DeleteFbxImporter);
+		std::unique_ptr<fbxsdk::FbxManager, FbxManagerDeleter> manager(fbxsdk::FbxManager::Create());
+		std::unique_ptr<fbxsdk::FbxImporter, FbxImporterDeleter> importer(fbxsdk::FbxImporter::Create(manager.get(), ""));
 
 		size_t length = wcslen(filePath) + 1;
 		std::unique_ptr<char[]> cFilePath(new char[length]);
@@ -39,7 +40,7 @@ class Model {
 
 		importer->Initialize(cFilePath.get(), -1, manager->GetIOSettings());
 
-		std::unique_ptr<fbxsdk::FbxScene, decltype(&DeleteFbxScene)> scene(fbxsdk::FbxScene::Create(manager.get(), ""), DeleteFbxScene);
+		std::unique_ptr<fbxsdk::FbxScene, FbxSceneDeleter> scene(fbxsdk::FbxScene::Create(manager.get(), ""));
 		importer->Import(scene.get());
 
 		fbxsdk::FbxGeometryConverter converter(manager.get());
@@ -89,7 +90,7 @@ class Model {
 			LoadMeshRecursively(node->GetChild(i));
 		}
 	}
-	PRIVATE DirectX::XMMATRIX FbxMatrixToXMMatrix(fbxsdk::FbxAMatrix source) {
+	PROTECTED static DirectX::XMMATRIX FbxMatrixToXMMatrix(fbxsdk::FbxAMatrix source) {
 		DirectX::XMMATRIX destination;
 		for (int x = 0; x < 4; x++) {
 			for (int y = 0; y < 4; y++) {
