@@ -27,9 +27,7 @@ int Main() {
 	while (App::Refresh()) {
 		camera.Update();
 
-		for (int i = 0; i < model.meshes.size(); i++) {
-			model.meshes[i]->angles.y += App::GetDeltaTime() * 50.0f;
-		}
+		model.angles.y += App::GetDeltaTime() * 50.0f;
 		model.Draw();
 	}
 

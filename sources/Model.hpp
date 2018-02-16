@@ -28,9 +28,16 @@ class Model {
 		}
 	};
 
+	PUBLIC XLibrary11::Float3 position;
+	PUBLIC XLibrary11::Float3 angles;
+	PUBLIC XLibrary11::Float3 scale;
 	PUBLIC std::vector<std::unique_ptr<XLibrary11::Mesh>> meshes;
 
 	PUBLIC Model(wchar_t* filePath) {
+		position = XLibrary11::Float3(0.0f, 0.0f, 0.0f);
+		angles = XLibrary11::Float3(0.0f, 0.0f, 0.0f);
+		scale = XLibrary11::Float3(1.0f, 1.0f, 1.0f);
+
 		std::unique_ptr<fbxsdk::FbxManager, FbxManagerDeleter> manager(fbxsdk::FbxManager::Create());
 		std::unique_ptr<fbxsdk::FbxImporter, FbxImporterDeleter> importer(fbxsdk::FbxImporter::Create(manager.get(), ""));
 
@@ -53,6 +60,10 @@ class Model {
 	}
 	PUBLIC void Draw() {
 		for (int i = 0; i < meshes.size(); i++) {
+			meshes[i]->position = position;
+			meshes[i]->angles = angles;
+			meshes[i]->scale = scale;
+
 			meshes[i]->Draw();
 		}
 	}
