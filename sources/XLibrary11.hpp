@@ -35,20 +35,12 @@ namespace XLibrary11 {
 #define PRIVATE private:
 #define PROTECTED protected:
 
-template<class ...Args>
-class Constructable {
-	PROTECTED virtual void Initialize() = 0;
-	PROTECTED virtual void Construct(Args ...args) = 0;
-};
-
-class Loadable {
-	PUBLIC virtual void Load(const wchar_t* const filePath) = 0;
-};
-
 struct Float2 : public DirectX::XMFLOAT2 {
 	PUBLIC Float2() : DirectX::XMFLOAT2() {
 	}
 	PUBLIC Float2(float x, float y) : DirectX::XMFLOAT2(x, y) {
+	}
+	PUBLIC Float2(float value) : DirectX::XMFLOAT2(value, value) {
 	}
 	PUBLIC Float2(const DirectX::XMVECTOR& vector) : DirectX::XMFLOAT2() {
 		DirectX::XMStoreFloat2(this, vector);
@@ -59,6 +51,12 @@ struct Float2 : public DirectX::XMFLOAT2 {
 	}
 	PUBLIC operator DirectX::XMVECTOR() const noexcept {
 		return DirectX::XMLoadFloat2(this);
+	}
+	PUBLIC Float2 operator+() const {
+		return Float2(this->x, this->y);
+	}
+	PUBLIC Float2 operator-() const {
+		return Float2(-this->x, -this->y);
 	}
 	PUBLIC Float2& operator=(const Float2& value) {
 		x = value.x;
@@ -142,6 +140,8 @@ struct Float3 : public DirectX::XMFLOAT3 {
 	}
 	PUBLIC Float3(float x, float y, float z) : DirectX::XMFLOAT3(x, y, z) {
 	}
+	PUBLIC Float3(float value) : DirectX::XMFLOAT3(value, value, value) {
+	}
 	PUBLIC Float3(const DirectX::XMVECTOR& vector) : DirectX::XMFLOAT3() {
 		DirectX::XMStoreFloat3(this, vector);
 	}
@@ -151,6 +151,12 @@ struct Float3 : public DirectX::XMFLOAT3 {
 	}
 	PUBLIC operator DirectX::XMVECTOR() const noexcept {
 		return DirectX::XMLoadFloat3(this);
+	}
+	PUBLIC Float3 operator+() const {
+		return Float3(this->x, this->y, this->z);
+	}
+	PUBLIC Float3 operator-() const {
+		return Float3(-this->x, -this->y, -this->z);
 	}
 	PUBLIC Float3& operator=(const Float3& value) {
 		x = value.x;
@@ -244,6 +250,8 @@ struct Float4 : public DirectX::XMFLOAT4 {
 	}
 	PUBLIC Float4(float x, float y, float z, float w) : DirectX::XMFLOAT4(x, y, z, w) {
 	}
+	PUBLIC Float4(float value) : DirectX::XMFLOAT4(value, value, value, value) {
+	}
 	PUBLIC Float4(const DirectX::XMVECTOR& vector) : DirectX::XMFLOAT4() {
 		DirectX::XMStoreFloat4(this, vector);
 	}
@@ -253,6 +261,12 @@ struct Float4 : public DirectX::XMFLOAT4 {
 	}
 	PUBLIC operator DirectX::XMVECTOR() const noexcept {
 		return DirectX::XMLoadFloat4(this);
+	}
+	PUBLIC Float4 operator+() const {
+		return Float4(this->x, this->y, this->z, this->w);
+	}
+	PUBLIC Float4 operator-() const {
+		return Float4(-this->x, -this->y, -this->z, -this->w);
 	}
 	PUBLIC Float4& operator=(const Float4& value) {
 		x = value.x;
@@ -373,10 +387,16 @@ class Window {
 		PUBLIC virtual ~Proceedable() {}
 	};
 
-	PRIVATE HWND handle;
-	PRIVATE const DWORD style = WS_OVERLAPPEDWINDOW;
+	PROTECTED HWND handle;
+	PROTECTED const DWORD style = WS_OVERLAPPEDWINDOW;
 
 	PUBLIC Window() {
+		Initialize();
+	}
+	PUBLIC ~Window() {
+		UnregisterClassW(App::name, GetModuleHandleW(nullptr));
+	}
+	PROTECTED virtual void Initialize() {
 		HINSTANCE instance = GetModuleHandleW(nullptr);
 
 		WNDCLASSEXW windowClass = {};
@@ -399,13 +419,10 @@ class Window {
 		SetSize(1280.0f, 720.0f);
 		ShowWindow(handle, SW_SHOWNORMAL);
 	}
-	PUBLIC ~Window() {
-		UnregisterClassW(App::name, GetModuleHandleW(nullptr));
-	}
-	PUBLIC HWND GetHandle() {
+	PUBLIC HWND GetHandle() const {
 		return handle;
 	}
-	PUBLIC Float2 GetSize() {
+	PUBLIC Float2 GetSize() const {
 		RECT clientRect = {};
 		GetClientRect(handle, &clientRect);
 
@@ -425,18 +442,18 @@ class Window {
 
 		SetWindowPos(handle, nullptr, x, y, w, h, SWP_FRAMECHANGED);
 	}
-	PUBLIC wchar_t* GetTitle() {
+	PUBLIC wchar_t* const GetTitle() const {
 		wchar_t* title = nullptr;
 		GetWindowTextW(handle, title, GetWindowTextLengthW(handle));
 		return title;
 	}
-	PUBLIC void SetTitle(const wchar_t* title) {
+	PUBLIC void SetTitle(const wchar_t* const title) {
 		SetWindowTextW(handle, title);
 	}
-	PUBLIC void SetFullScreen(bool isFullscreen) {
+	PUBLIC void SetFullScreen(bool isFullScreen) {
 		static Float2 size = GetSize();
 
-		if (isFullscreen) {
+		if (isFullScreen) {
 			size = GetSize();
 			int w = GetSystemMetrics(SM_CXSCREEN);
 			int h = GetSystemMetrics(SM_CYSCREEN);
@@ -470,11 +487,11 @@ class Window {
 
 		return false;
 	}
-	PRIVATE static std::forward_list<Proceedable*>& GetProcedures() {
+	PROTECTED static std::forward_list<Proceedable*>& GetProcedures() {
 		static std::forward_list<Proceedable*> procedures;
 		return procedures;
 	}
-	PRIVATE static LRESULT WINAPI Proceed(HWND handle, UINT message, WPARAM wParam, LPARAM lParam) {
+	PROTECTED static LRESULT WINAPI Proceed(HWND handle, UINT message, WPARAM wParam, LPARAM lParam) {
 		for (Proceedable* procedure : GetProcedures()) {
 			procedure->OnProceed(handle, message, wParam, lParam);
 		}
@@ -487,12 +504,28 @@ class Window {
 	}
 };
 
-class Graphics {
-	PRIVATE Microsoft::WRL::ComPtr<ID3D11Device> device = nullptr;
-	PRIVATE Microsoft::WRL::ComPtr<IDXGISwapChain> swapChain = nullptr;
-	PRIVATE Microsoft::WRL::ComPtr<ID3D11DeviceContext> context = nullptr;
+class Graphics : public App::Window::Proceedable {
+	PROTECTED struct Constant {
+		DirectX::XMMATRIX view;
+		DirectX::XMMATRIX projection;
+	};
+
+	PROTECTED Constant constant;
+	PROTECTED Microsoft::WRL::ComPtr<ID3D11Device> device = nullptr;
+	PROTECTED Microsoft::WRL::ComPtr<IDXGISwapChain> swapChain = nullptr;
+	PROTECTED Microsoft::WRL::ComPtr<ID3D11DeviceContext> context = nullptr;
+	PROTECTED Microsoft::WRL::ComPtr<ID3D11RenderTargetView> renderTargetView = nullptr;
+	PROTECTED Microsoft::WRL::ComPtr<ID3D11Texture2D> renderTexture = nullptr;
+	PROTECTED Microsoft::WRL::ComPtr<ID3D11Buffer> constantBuffer = nullptr;
 
 	PUBLIC Graphics() {
+		Initialize();
+		Create();
+	}
+	PUBLIC ~Graphics() {
+		App::RemoveProcedure(this);
+	}
+	PROTECTED virtual void Initialize() {
 		int flags = 0;
 #if defined(DEBUG) || defined(_DEBUG)
 		flags |= D3D11_CREATE_DEVICE_DEBUG;
@@ -551,17 +584,76 @@ class Graphics {
 		float blendFactor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 		device->CreateBlendState(&blendDesc, &blendState);
 		context->OMSetBlendState(blendState.Get(), blendFactor, 0xffffffff);
+
+		constantBuffer.Reset();
+		D3D11_BUFFER_DESC constantBufferDesc = {};
+		constantBufferDesc.ByteWidth = static_cast<UINT>(sizeof(Constant));
+		constantBufferDesc.Usage = D3D11_USAGE_DEFAULT;
+		constantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+		constantBufferDesc.CPUAccessFlags = 0;
+		device->CreateBuffer(&constantBufferDesc, nullptr, constantBuffer.GetAddressOf());
+
+		App::AddProcedure(this);
 	}
-	PUBLIC ~Graphics() {
+	PROTECTED virtual void Create() {
+		D3D11_VIEWPORT viewPort = {};
+		viewPort.Width = App::GetWindowSize().x;
+		viewPort.Height = App::GetWindowSize().y;
+		viewPort.MinDepth = 0.0f;
+		viewPort.MaxDepth = 1.0f;
+		viewPort.TopLeftX = 0;
+		viewPort.TopLeftY = 0;
+		context->RSSetViewports(1, &viewPort);
+
+		renderTexture.Reset();
+		swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(renderTexture.GetAddressOf()));
+		renderTargetView.Reset();
+		device->CreateRenderTargetView(renderTexture.Get(), nullptr, renderTargetView.GetAddressOf());
+
+		constant.view = DirectX::XMMatrixIdentity();
+		constant.projection = DirectX::XMMatrixOrthographicLH(App::GetWindowSize().x, App::GetWindowSize().y, -10000.0f, 10000.0f);
 	}
-	PUBLIC ID3D11Device& GetDevice() {
+	PUBLIC ID3D11Device& const GetDevice() const {
 		return *device.Get();
 	}
-	PUBLIC IDXGISwapChain& GetMemory() {
+	PUBLIC IDXGISwapChain& const GetMemory() const {
 		return *swapChain.Get();
 	}
-	PUBLIC ID3D11DeviceContext& GetContext() {
+	PUBLIC ID3D11DeviceContext& const GetContext() const {
 		return *context.Get();
+	}
+	PUBLIC void Update() {
+		context->UpdateSubresource(constantBuffer.Get(), 0, nullptr, &constant, 0, 0);
+		context->VSSetConstantBuffers(1, 1, constantBuffer.GetAddressOf());
+		context->HSSetConstantBuffers(1, 1, constantBuffer.GetAddressOf());
+		context->DSSetConstantBuffers(1, 1, constantBuffer.GetAddressOf());
+		context->GSSetConstantBuffers(1, 1, constantBuffer.GetAddressOf());
+		context->PSSetConstantBuffers(1, 1, constantBuffer.GetAddressOf());
+
+		context->OMSetRenderTargets(1, renderTargetView.GetAddressOf(), nullptr);
+
+		static float color[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+		context->ClearRenderTargetView(renderTargetView.Get(), color);
+	}
+	PROTECTED void OnProceed(HWND, UINT message, WPARAM, LPARAM) override {
+		if (message != WM_SIZE) {
+			return;
+		}
+		if (App::GetWindowSize().x <= 0.0f || App::GetWindowSize().y <= 0.0f) {
+			return;
+		}
+
+		DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
+		swapChain->GetDesc(&swapChainDesc);
+
+		Microsoft::WRL::ComPtr<ID3D11RenderTargetView> nullRenderTarget = nullptr;
+		context->OMSetRenderTargets(1, nullRenderTarget.GetAddressOf(), nullptr);
+		renderTargetView.Reset();
+		renderTexture.Reset();
+		context->Flush();
+		swapChain->ResizeBuffers(swapChainDesc.BufferCount, static_cast<UINT>(App::GetWindowSize().x), static_cast<UINT>(App::GetWindowSize().y), swapChainDesc.BufferDesc.Format, swapChainDesc.Flags);
+
+		Create();
 	}
 };
 
@@ -570,13 +662,7 @@ class Audio {
 	PROTECTED IXAudio2MasteringVoice* masteringVoice = nullptr;
 
 	PUBLIC Audio() {
-		App::GetWindowHandle();
-
-		XAudio2Create(audioEngine.GetAddressOf());
-
-		audioEngine->CreateMasteringVoice(&masteringVoice);
-
-		MFStartup(MF_VERSION);
+		Initialize();
 	}
 	PUBLIC ~Audio() {
 		MFShutdown();
@@ -585,32 +671,44 @@ class Audio {
 		
 		audioEngine->StopEngine();
 	}
-	PUBLIC IXAudio2& GetAudioEngine() {
+	PROTECTED virtual void Initialize() {
+		App::GetWindowHandle();
+
+		XAudio2Create(audioEngine.GetAddressOf());
+
+		audioEngine->CreateMasteringVoice(&masteringVoice);
+
+		MFStartup(MF_VERSION);
+	}
+	PUBLIC IXAudio2& const GetEngine() const {
 		return *audioEngine.Get();
 	}
 };
 
 class Input {
-	PRIVATE Float2 mousePosition;
-	PRIVATE BYTE preKeyState[256];
-	PRIVATE BYTE keyState[256];
-	PRIVATE bool isShowCursor = true;
+	PROTECTED Float2 mousePosition;
+	PROTECTED BYTE preKeyState[256];
+	PROTECTED BYTE keyState[256];
+	PROTECTED bool isShowCursor = true;
 
 	PUBLIC Input() {
-		Update();
+		Initialize();
 	}
 	PUBLIC ~Input() {
 	}
-	PUBLIC bool GetKey(int keyCode) {
+	PROTECTED virtual void Initialize() {
+		Update();
+	}
+	PUBLIC bool GetKey(int keyCode) const {
 		return keyState[keyCode] & 0x80;
 	}
-	PUBLIC bool GetKeyUp(int keyCode) {
+	PUBLIC bool GetKeyUp(int keyCode) const {
 		return !(keyState[keyCode] & 0x80) && (preKeyState[keyCode] & 0x80);
 	}
-	PUBLIC bool GetKeyDown(int keyCode) {
+	PUBLIC bool GetKeyDown(int keyCode) const {
 		return (keyState[keyCode] & 0x80) && !(preKeyState[keyCode] & 0x80);
 	}
-	PUBLIC Float2 GetMousePosition() {
+	PUBLIC Float2 GetMousePosition() const {
 		return mousePosition;
 	}
 	PUBLIC void SetMousePosition(float x, float y) {
@@ -648,27 +746,30 @@ class Input {
 };
 
 class Timer {
-	PRIVATE float time = 0.0f;
-	PRIVATE float deltaTime = 0.0f;
-	PRIVATE int frameRate = 0;
-	PRIVATE float second = 0.0f;
-	PRIVATE int frameCount = 0;
+	PROTECTED float time = 0.0f;
+	PROTECTED float deltaTime = 0.0f;
+	PROTECTED int frameRate = 0;
+	PROTECTED float second = 0.0f;
+	PROTECTED int frameCount = 0;
 	LARGE_INTEGER preCount;
 	LARGE_INTEGER frequency;
 
 	PUBLIC Timer() {
-		preCount = GetCounter();
-		frequency = GetCountFrequency();
+		Initialize();
 	}
 	PUBLIC ~Timer() {
 	}
-	PUBLIC float GetTime() {
+	PROTECTED virtual void Initialize() {
+		preCount = GetCounter();
+		frequency = GetCountFrequency();
+	}
+	PUBLIC float GetTime() const {
 		return time;
 	}
-	PUBLIC float GetDeltaTime() {
+	PUBLIC float GetDeltaTime() const {
 		return deltaTime;
 	}
-	PUBLIC int GetFrameRate() {
+	PUBLIC int GetFrameRate() const {
 		return frameRate;
 	}
 	PUBLIC void Update() {
@@ -688,12 +789,12 @@ class Timer {
 			second -= 1.0f;
 		}
 	}
-	PRIVATE LARGE_INTEGER GetCounter() {
+	PROTECTED LARGE_INTEGER GetCounter() const {
 		LARGE_INTEGER counter;
 		QueryPerformanceCounter(&counter);
 		return counter;
 	}
-	PRIVATE LARGE_INTEGER GetCountFrequency() {
+	PROTECTED LARGE_INTEGER GetCountFrequency() const {
 		LARGE_INTEGER frequency;
 		QueryPerformanceFrequency(&frequency);
 		return frequency;
@@ -711,14 +812,14 @@ class Timer {
 	PUBLIC static void SetWindowSize(float width, float height) {
 		GetWindow().SetSize(width, height);
 	}
-	PUBLIC static wchar_t* GetTitle() {
+	PUBLIC static wchar_t* const GetTitle() {
 		return GetWindow().GetTitle();
 	}
-	PUBLIC static void SetTitle(const wchar_t* title) {
+	PUBLIC static void SetTitle(const wchar_t* const title) {
 		GetWindow().SetTitle(title);
 	}
-	PUBLIC static void SetFullScreen(bool isFullscreen) {
-		GetWindow().SetFullScreen(isFullscreen);
+	PUBLIC static void SetFullScreen(bool isFullScreen) {
+		GetWindow().SetFullScreen(isFullScreen);
 	}
 	PUBLIC static void AddProcedure(Window::Proceedable* const procedure) {
 		GetWindow().AddProcedure(procedure);
@@ -726,17 +827,17 @@ class Timer {
 	PUBLIC static void RemoveProcedure(Window::Proceedable* const procedure) {
 		GetWindow().RemoveProcedure(procedure);
 	}
-	PUBLIC static ID3D11Device& GetGraphicsDevice() {
+	PUBLIC static ID3D11Device& const GetGraphicsDevice() {
 		return GetGraphics().GetDevice();
 	}
-	PUBLIC static ID3D11DeviceContext& GetGraphicsContext() {
+	PUBLIC static ID3D11DeviceContext& const GetGraphicsContext() {
 		return GetGraphics().GetContext();
 	}
-	PUBLIC static IDXGISwapChain& GetGraphicsMemory() {
+	PUBLIC static IDXGISwapChain& const GetGraphicsMemory() {
 		return GetGraphics().GetMemory();
 	}
-	PUBLIC static IXAudio2& GetAudioEngine() {
-		return GetAudio().GetAudioEngine();
+	PUBLIC static IXAudio2& const GetAudioEngine() {
+		return GetAudio().GetEngine();
 	}
 	PUBLIC static bool GetKey(int VK_CODE) {
 		return GetInput().GetKey(VK_CODE);
@@ -749,9 +850,6 @@ class Timer {
 	}
 	PUBLIC static Float2 GetMousePosition() {
 		return GetInput().GetMousePosition();
-	}
-	PUBLIC static void SetMousePosition(Float2 position) {
-		GetInput().SetMousePosition(position.x, position.y);
 	}
 	PUBLIC static void SetMousePosition(float x, float y) {
 		GetInput().SetMousePosition(x, y);
@@ -775,53 +873,54 @@ class Timer {
 		GetGraphicsMemory().Present(1, 0);
 
 		if (!GetWindow().Update()) return false;
+		GetGraphics().Update();
 		GetInput().Update();
 		GetTimer().Update();
 
 		return true;
 	}
-	PRIVATE static Window& GetWindow() {
+	PRIVATE static Window& const GetWindow() {
 		static std::unique_ptr<Window> window(new Window());
 		return *window.get();
 	}
-	PRIVATE static Graphics& GetGraphics() {
+	PRIVATE static Graphics& const GetGraphics() {
 		static std::unique_ptr<Graphics> graphics(new Graphics());
 		return *graphics.get();
 	}
-	PRIVATE static Audio& GetAudio() {
+	PRIVATE static Audio& const GetAudio() {
 		static std::unique_ptr<Audio> audio(new Audio());
 		return *audio.get();
 	}
-	PRIVATE static Input& GetInput() {
+	PRIVATE static Input& const GetInput() {
 		static std::unique_ptr<Input> input(new Input());
 		return *input.get();
 	}
-	PRIVATE static Timer& GetTimer() {
+	PRIVATE static Timer& const GetTimer() {
 		static std::unique_ptr<Timer> timer(new Timer());
 		return *timer.get();
 	}
 };
 
-class Texture : public Constructable<int, int, const BYTE* const>, public Loadable {
+class Texture {
 	PROTECTED int width;
 	PROTECTED int height;
 	PROTECTED Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
 	PROTECTED Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> shaderResourceView;
 	PROTECTED Microsoft::WRL::ComPtr<ID3D11SamplerState> samplerState;
 
-	PUBLIC Texture(wchar_t* filePath) {
-		Initialize();
+	PUBLIC Texture() {
+		std::unique_ptr<BYTE[]> buffer(new BYTE[4]{ 0xff, 0x00, 0xff, 0xff });
+		Create(1, 1, buffer.get());
+	}
+	PUBLIC Texture(const wchar_t* const filePath) {
 		Load(filePath);
 	}
 	PUBLIC Texture(int width, int height, BYTE* buffer) {
-		Initialize();
-		Construct(width, height, buffer);
+		Create(width, height, buffer);
 	}
 	PUBLIC virtual ~Texture() {
 	}
-	PROTECTED void Initialize() override {
-	}
-	PROTECTED void Construct(int width, int height, const BYTE* const buffer) override {
+	PROTECTED virtual void Create(int width, int height, const BYTE* const buffer) {
 		this->width = width;
 		this->height = height;
 
@@ -869,7 +968,7 @@ class Texture : public Constructable<int, int, const BYTE* const>, public Loadab
 		samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
 		App::GetGraphicsDevice().CreateSamplerState(&samplerDesc, samplerState.GetAddressOf());
 	}
-	PUBLIC void Load(const wchar_t* const filePath) override {
+	PUBLIC void Load(const wchar_t* const filePath) {
 		App::GetWindowHandle();
 
 		Microsoft::WRL::ComPtr<IWICImagingFactory> factory = nullptr;
@@ -899,7 +998,7 @@ class Texture : public Constructable<int, int, const BYTE* const>, public Loadab
 			frame->CopyPixels(0, width * 4, width * height * 4, buffer.get());
 		}
 
-		Construct(width, height, buffer.get());
+		Create(width, height, buffer.get());
 	}
 	PUBLIC Float2 GetSize() {
 		return Float2(static_cast<float>(width), static_cast<float>(height));
@@ -910,9 +1009,9 @@ class Texture : public Constructable<int, int, const BYTE* const>, public Loadab
 	}
 };
 
-class Material : public Constructable<const char* const>, public Loadable {
-	PUBLIC void* cbuffer = nullptr;
-	PUBLIC Texture* textures[10];
+class Material {
+	PROTECTED void* cbuffer = nullptr;
+	PROTECTED Texture* textures[10];
 	PROTECTED Microsoft::WRL::ComPtr<ID3D11VertexShader> vertexShader = nullptr;
 	PROTECTED Microsoft::WRL::ComPtr<ID3D11PixelShader> pixelShader = nullptr;
 	PROTECTED Microsoft::WRL::ComPtr<ID3D11InputLayout> inputLayout = nullptr;
@@ -939,24 +1038,24 @@ class Material : public Constructable<const char* const>, public Loadable {
 			"}";
 
 		Initialize();
-		Construct(source);
+		Create(source);
 	}
 	PUBLIC Material(char* source) {
 		Initialize();
-		Construct(source);
+		Create(source);
 	}
-	PUBLIC Material(wchar_t* filePath) {
+	PUBLIC Material(const wchar_t* const filePath) {
 		Initialize();
 		Load(filePath);
 	}
 	PUBLIC virtual ~Material() {
 	}
-	PROTECTED void Initialize() override {
+	PROTECTED virtual void Initialize() {
 		for (int i = 0; i < 10; i++) {
 			textures[i] = nullptr;
 		}
 	}
-	PROTECTED void Construct(const char* source) override{
+	PROTECTED virtual void Create(const char* source) {
 		vertexShader.Reset();
 		Microsoft::WRL::ComPtr<ID3DBlob> vertexShaderBlob = nullptr;
 		CompileShader(source, "VS", "vs_5_0", vertexShaderBlob.GetAddressOf());
@@ -975,14 +1074,14 @@ class Material : public Constructable<const char* const>, public Loadable {
 
 		App::GetGraphicsDevice().CreateInputLayout(&inputElementDesc[0], static_cast<UINT>(inputElementDesc.size()), vertexShaderBlob->GetBufferPointer(), vertexShaderBlob->GetBufferSize(), inputLayout.GetAddressOf());
 	}
-	PUBLIC void Load(const wchar_t* const filePath) override {
+	PUBLIC void Load(const wchar_t* const filePath) {
 		std::ifstream sourceFile(filePath);
 		std::istreambuf_iterator<char> iterator(sourceFile);
 		std::istreambuf_iterator<char> last;
 		std::string source(iterator, last);
 		sourceFile.close();
 
-		Construct(source.c_str());
+		Create(source.c_str());
 	}
 	PUBLIC void SetCBuffer(void* cbuffer, size_t size) {
 		this->cbuffer = cbuffer;
@@ -1036,7 +1135,7 @@ class Material : public Constructable<const char* const>, public Loadable {
 	}
 };
 
-class Camera : public Constructable<>, public App::Window::Proceedable {
+class Camera : public App::Window::Proceedable {
 	PROTECTED struct Constant {
 		DirectX::XMMATRIX view;
 		DirectX::XMMATRIX projection;
@@ -1056,12 +1155,12 @@ class Camera : public Constructable<>, public App::Window::Proceedable {
 
 	PUBLIC Camera() {
 		Initialize();
-		Construct();
+		Create();
 	}
 	PUBLIC virtual ~Camera() {
 		App::RemoveProcedure(this);
 	}
-	PROTECTED void Initialize() override {
+	PROTECTED virtual void Initialize() {
 		position = Float3(0.0f, 0.0f, -5.0f);
 		angles = Float3(0.0f, 0.0f, 0.0f);
 
@@ -1069,7 +1168,7 @@ class Camera : public Constructable<>, public App::Window::Proceedable {
 
 		App::AddProcedure(this);
 	}
-	PROTECTED void Construct() override {
+	PROTECTED virtual void Create() {
 		renderTexture.Reset();
 		App::GetGraphicsMemory().GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(renderTexture.GetAddressOf()));
 		renderTargetView.Reset();
@@ -1104,15 +1203,6 @@ class Camera : public Constructable<>, public App::Window::Proceedable {
 			depthStencilViewDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2DMS;
 		}
 		App::GetGraphicsDevice().CreateDepthStencilView(depthTexture.Get(), &depthStencilViewDesc, depthStencilView.GetAddressOf());
-
-		D3D11_VIEWPORT viewPort = {};
-		viewPort.Width = App::GetWindowSize().x;
-		viewPort.Height = App::GetWindowSize().y;
-		viewPort.MinDepth = 0.0f;
-		viewPort.MaxDepth = 1.0f;
-		viewPort.TopLeftX = 0;
-		viewPort.TopLeftY = 0;
-		App::GetGraphicsContext().RSSetViewports(1, &viewPort);
 
 		constantBuffer.Reset();
 		D3D11_BUFFER_DESC constantBufferDesc = {};
@@ -1171,11 +1261,11 @@ class Camera : public Constructable<>, public App::Window::Proceedable {
 		App::GetGraphicsMemory().ResizeBuffers(swapChainDesc.BufferCount, static_cast<UINT>(App::GetWindowSize().x), static_cast<UINT>(App::GetWindowSize().y), swapChainDesc.BufferDesc.Format, swapChainDesc.Flags);
 
 		SetPerspective(fieldOfView, nearClip, farClip);
-		Construct();
+		Create();
 	}
 };
 
-class Mesh : public Constructable<> {
+class Mesh {
 	PROTECTED struct Constant {
 		DirectX::XMMATRIX world;
 		Float3 lightDirection;
@@ -1194,11 +1284,11 @@ class Mesh : public Constructable<> {
 
 	PUBLIC Mesh() {
 		Initialize();
-		Construct();
+		Create();
 	}
 	PUBLIC virtual ~Mesh() {
 	}
-	PROTECTED void Initialize() override {
+	PROTECTED virtual void Initialize() {
 		position = Float3(0.0f, 0.0f, 0.0f);
 		angles = Float3(0.0f, 0.0f, 0.0f);
 		scale = Float3(1.0f, 1.0f, 1.0f);
@@ -1236,7 +1326,7 @@ class Mesh : public Constructable<> {
 
 		SetCullingMode(D3D11_CULL_BACK);
 	}
-	PROTECTED void Construct() override {
+	PROTECTED virtual void Create() {
 		if (vertices.size() > 0) {
 			vertexBuffer.Reset();
 			D3D11_BUFFER_DESC vertexBufferDesc = {};
@@ -1306,7 +1396,7 @@ class Mesh : public Constructable<> {
 		App::GetGraphicsDevice().CreateRasterizerState(&rasterizerDesc, &rasterizerState);
 	}
 	PUBLIC void Apply() {
-		Construct();
+		Create();
 	}
 	PUBLIC virtual void Draw() {
 		material.Attach();
@@ -1340,191 +1430,69 @@ class Mesh : public Constructable<> {
 };
 
 class Sprite {
-	PROTECTED struct ConstantBuffer {
-		DirectX::XMMATRIX world;
-		Float4 color;
-	};
-
 	PUBLIC Float3 position;
 	PUBLIC Float3 angles;
 	PUBLIC Float3 scale;
-	PUBLIC Float4 color;
-	PROTECTED UINT width;
-	PROTECTED UINT height;
-	PROTECTED Microsoft::WRL::ComPtr<ID3D11Texture2D> texture;
-	PROTECTED ConstantBuffer cbuffer;
-	PRIVATE int indexCount;
-	PRIVATE Microsoft::WRL::ComPtr<ID3D11Buffer> vertexBuffer;
-	PRIVATE Microsoft::WRL::ComPtr<ID3D11Buffer> indexBuffer;
-	PRIVATE Microsoft::WRL::ComPtr<ID3D11Buffer> constantBuffer;
-	PRIVATE Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> shaderResourceView;
-	PRIVATE Microsoft::WRL::ComPtr<ID3D11SamplerState> samplerState;
+	PUBLIC Texture texture;
+	PROTECTED Mesh mesh;
 
-	PUBLIC Sprite() {
+	PUBLIC Sprite(const wchar_t* const filePath) {
 		Initialize();
+		Load(filePath);
 	}
-	PUBLIC Sprite(const wchar_t* filePath) {
-		CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-
-		Microsoft::WRL::ComPtr<IWICImagingFactory> factory = nullptr;
-		CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(factory.GetAddressOf()));
-
-		Microsoft::WRL::ComPtr<IWICBitmapDecoder> decoder = nullptr;
-		BYTE* textureBuffer = nullptr;
-
-		if (SUCCEEDED(factory->CreateDecoderFromFilename(filePath, 0, GENERIC_READ, WICDecodeMetadataCacheOnDemand, decoder.GetAddressOf()))) {
-			Microsoft::WRL::ComPtr<IWICBitmapFrameDecode> frame = nullptr;
-			decoder->GetFrame(0, frame.GetAddressOf());
-			frame->GetSize(&width, &height);
-
-			WICPixelFormatGUID pixelFormat;
-			frame->GetPixelFormat(&pixelFormat);
-			textureBuffer = new BYTE[width * height * 4];
-
-			if (pixelFormat != GUID_WICPixelFormat32bppRGBA) {
-				Microsoft::WRL::ComPtr<IWICFormatConverter> formatConverter = nullptr;
-				factory->CreateFormatConverter(formatConverter.GetAddressOf());
-
-				formatConverter->Initialize(frame.Get(), GUID_WICPixelFormat32bppRGBA, WICBitmapDitherTypeErrorDiffusion, 0, 0, WICBitmapPaletteTypeCustom);
-
-				formatConverter->CopyPixels(0, width * 4, width * height * 4, textureBuffer);
-			}
-			else {
-				frame->CopyPixels(0, width * 4, width * height * 4, textureBuffer);
-			}
-		}
-		else {
-			width = height = 100;
-			textureBuffer = new BYTE[width * height * 4];
-			for (UINT y = 0; y < height; y++) {
-				for (UINT x = 0; x < width; x++) {
-					BYTE color[4] = { 0xff, 0x00, 0xff, 0xff };
-					memcpy(&textureBuffer[x * 4 + y * (width * 4)], color, sizeof(DWORD));
-				}
-			}
-		}
-
-		D3D11_TEXTURE2D_DESC textureDesc = {};
-		textureDesc.Width = width;
-		textureDesc.Height = height;
-		textureDesc.MipLevels = 1;
-		textureDesc.ArraySize = 1;
-		textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-		textureDesc.SampleDesc.Count = 1;
-		textureDesc.SampleDesc.Quality = 0;
-		textureDesc.Usage = D3D11_USAGE_DEFAULT;
-		textureDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-		textureDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-		textureDesc.MiscFlags = 0;
-
-		D3D11_SUBRESOURCE_DATA textureSubresourceData;
-		textureSubresourceData.pSysMem = textureBuffer;
-		textureSubresourceData.SysMemPitch = width * 4;
-		textureSubresourceData.SysMemSlicePitch = width * height * 4;
-		App::GetGraphicsDevice().CreateTexture2D(&textureDesc, &textureSubresourceData, texture.GetAddressOf());
-
-		delete[] textureBuffer;
-
-		Initialize();
+	PUBLIC ~Sprite() {
 	}
-	PUBLIC virtual ~Sprite() {
-	}
-	PUBLIC DirectX::XMINT2 GetSize() {
-		return DirectX::XMINT2(width, height);
-	}
-	PUBLIC void Draw() {
-		cbuffer.world = DirectX::XMMatrixScaling(scale.x, scale.y, scale.z) * DirectX::XMMatrixRotationRollPitchYaw(DirectX::XMConvertToRadians(angles.x), DirectX::XMConvertToRadians(angles.y), DirectX::XMConvertToRadians(angles.z))* DirectX::XMMatrixTranslation(position.x, position.y, position.z);
-		cbuffer.color = color;
-		App::GetGraphicsContext().UpdateSubresource(constantBuffer.Get(), 0, nullptr, &cbuffer, 0, 0);
-		App::GetGraphicsContext().VSSetConstantBuffers(0, 1, constantBuffer.GetAddressOf());
-		App::GetGraphicsContext().PSSetConstantBuffers(0, 1, constantBuffer.GetAddressOf());
-
-		App::GetGraphicsContext().PSSetShaderResources(0, 1, shaderResourceView.GetAddressOf());
-		App::GetGraphicsContext().PSSetSamplers(0, 1, samplerState.GetAddressOf());
-
-		App::GetGraphicsContext().DrawIndexed(indexCount, 0, 0);
-	}
-	PROTECTED void Initialize() {
+	PROTECTED virtual void Initialize() {
 		position = Float3(0.0f, 0.0f, 0.0f);
 		angles = Float3(0.0f, 0.0f, 0.0f);
 		scale = Float3(1.0f, 1.0f, 1.0f);
-		color = Float4(1.0f, 1.0f, 1.0f, 1.0f);
 
-		Vertex quad[] = {
-			{ Float3(-0.5f, 0.5f, 0.0f), Float3(0.0f, 0.0f, -1.0f), Float2(0.0f, 0.0f) },
-			{ Float3(0.5f, 0.5f, 0.0f), Float3(0.0f, 0.0f, -1.0f), Float2(1.0f, 0.0f) },
-			{ Float3(-0.5f, -0.5f, 0.0f), Float3(0.0f, 0.0f, -1.0f), Float2(0.0f, 1.0f) },
-			{ Float3(0.5f, -0.5f, 0.0f), Float3(0.0f, 0.0f, -1.0f), Float2(1.0f, 1.0f) },
-		};
-		int vertexCount = sizeof(quad) / sizeof(quad[0]);
-
-		int index[] = {
-			0, 1, 2,
-			3, 2, 1,
-		};
-		indexCount = sizeof(index) / sizeof(index[0]);
-
-		D3D11_BUFFER_DESC vertexBufferDesc = {};
-		vertexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-		vertexBufferDesc.ByteWidth = sizeof(Vertex) * vertexCount;
-		vertexBufferDesc.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-		vertexBufferDesc.CPUAccessFlags = 0;
-		D3D11_SUBRESOURCE_DATA vertexSubresourceData = {};
-		vertexSubresourceData.pSysMem = quad;
-		App::GetGraphicsDevice().CreateBuffer(&vertexBufferDesc, &vertexSubresourceData, vertexBuffer.GetAddressOf());
-
-		UINT stride = sizeof(Vertex);
-		UINT offset = 0;
-		App::GetGraphicsContext().IASetVertexBuffers(0, 1, vertexBuffer.GetAddressOf(), &stride, &offset);
-		App::GetGraphicsContext().IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
-		D3D11_BUFFER_DESC indexBufferDesc = {};
-		indexBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-		indexBufferDesc.ByteWidth = sizeof(int) * indexCount;
-		indexBufferDesc.BindFlags = D3D11_BIND_INDEX_BUFFER;
-		indexBufferDesc.CPUAccessFlags = 0;
-		D3D11_SUBRESOURCE_DATA indexSubresourceData = {};
-		indexSubresourceData.pSysMem = index;
-		App::GetGraphicsDevice().CreateBuffer(&indexBufferDesc, &indexSubresourceData, indexBuffer.GetAddressOf());
-
-		App::GetGraphicsContext().IASetIndexBuffer(indexBuffer.Get(), DXGI_FORMAT_R32_UINT, 0);
-
-		D3D11_BUFFER_DESC constantBufferDesc = {};
-		constantBufferDesc.ByteWidth = sizeof(ConstantBuffer);
-		constantBufferDesc.Usage = D3D11_USAGE_DEFAULT;
-		constantBufferDesc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-		constantBufferDesc.CPUAccessFlags = 0;
-		App::GetGraphicsDevice().CreateBuffer(&constantBufferDesc, nullptr, constantBuffer.GetAddressOf());
-
-		D3D11_SHADER_RESOURCE_VIEW_DESC shaderResourceViewDesc = {};
-		shaderResourceViewDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-		shaderResourceViewDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-		shaderResourceViewDesc.Texture2D.MipLevels = 1;
-		App::GetGraphicsDevice().CreateShaderResourceView(texture.Get(), &shaderResourceViewDesc, shaderResourceView.GetAddressOf());
-
-		D3D11_SAMPLER_DESC samplerDesc;
-		samplerDesc.Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR;
-		samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-		samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-		samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
-		samplerDesc.MipLODBias = 0.0f;
-		samplerDesc.MaxAnisotropy = 1;
-		samplerDesc.ComparisonFunc = D3D11_COMPARISON_ALWAYS;
-		samplerDesc.BorderColor[0] = 0.0f;
-		samplerDesc.BorderColor[1] = 0.0f;
-		samplerDesc.BorderColor[2] = 0.0f;
-		samplerDesc.BorderColor[3] = 0.0f;
-		samplerDesc.MinLOD = 0;
-		samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
-		App::GetGraphicsDevice().CreateSamplerState(&samplerDesc, samplerState.GetAddressOf());
+		mesh.material = Material(
+			"cbuffer Object : register(b0) {"
+			"    matrix _world;"
+			"};"
+			"cbuffer Camera : register(b1) {"
+			"    matrix _view;"
+			"    matrix _projection;"
+			"};"
+			"Texture2D tex : register(t0);"
+			"SamplerState samp: register(s0);"
+			"struct VSOutput {"
+			"    float4 position : SV_POSITION;"
+			"    float2 uv : TEXCOORD;"
+			"};"
+			"VSOutput VS(float3 position : POSITION, float2 uv : TEXCOORD) {"
+			"    VSOutput output = (VSOutput)0;"
+			"    output.position = mul(_world, float4(position, 1.0));"
+			"    output.position = mul(_view, output.position);"
+			"    output.position = mul(_projection, output.position);"
+			"    output.uv = uv;"
+			"    return output;"
+			"}"
+			"float4 PS(VSOutput pixel) : SV_TARGET {"
+			"    return max(0, tex.Sample(samp, pixel.uv));"
+			"}"
+		);
+	}
+	PUBLIC void Load(const wchar_t* const filePath) {
+		texture.Load(filePath);
+		mesh.material.SetTexture(0, &texture);
+		mesh.CreateQuad(texture.GetSize() / 2.0f);
+		mesh.Apply();
+	}
+	PUBLIC virtual void Draw() {
+		mesh.position = position;
+		mesh.angles = angles;
+		mesh.scale = scale;
+		mesh.Draw();
 	}
 };
 
-class Text : public Sprite {
+class Text {
 	PUBLIC Text(const wchar_t* text = L"", const wchar_t* fontFamily = L"") {
-		if (text == L"") {
-			text = L"\uFFFD";
-		}
+		//if (text == L"") {
+		//	text = L"\uFFFD";
+		//}
 
 		LOGFONTW logFont = {};
 		logFont.lfHeight = 256;
@@ -1552,15 +1520,15 @@ class Text : public Sprite {
 		GLYPHMETRICS glyphMetrics = {};
 		const MAT2 matrix = { { 0, 1 }, { 0, 0 }, { 0, 0 }, { 0, 1 } };
 		DWORD size = GetGlyphOutlineW(dc, code, GGO_GRAY4_BITMAP, &glyphMetrics, 0, nullptr, &matrix);
-		BYTE* textureBuffer = new BYTE[size];
-		GetGlyphOutlineW(dc, code, GGO_GRAY4_BITMAP, &glyphMetrics, size, textureBuffer, &matrix);
+		std::unique_ptr<BYTE[]> buffer(new BYTE[size]);
+		GetGlyphOutlineW(dc, code, GGO_GRAY4_BITMAP, &glyphMetrics, size, buffer.get(), &matrix);
 
 		SelectObject(dc, oldFont);
 		DeleteObject(font);
 		ReleaseDC(nullptr, dc);
 
-		width = glyphMetrics.gmCellIncX;
-		height = textMetrics.tmHeight;
+		UINT width = glyphMetrics.gmCellIncX;
+		UINT height = textMetrics.tmHeight;
 
 		D3D11_TEXTURE2D_DESC textureDesc = {};
 		textureDesc.Width = width;
@@ -1575,10 +1543,10 @@ class Text : public Sprite {
 		textureDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 		textureDesc.MiscFlags = 0;
 
-		App::GetGraphicsDevice().CreateTexture2D(&textureDesc, nullptr, texture.GetAddressOf());
+		//App::GetGraphicsDevice().CreateTexture2D(&textureDesc, nullptr, texture.GetAddressOf());
 
 		D3D11_MAPPED_SUBRESOURCE mapped;
-		App::GetGraphicsContext().Map(texture.Get(), D3D11CalcSubresource(0, 0, 1), D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+		//App::GetGraphicsContext().Map(texture.Get(), D3D11CalcSubresource(0, 0, 1), D3D11_MAP_WRITE_DISCARD, 0, &mapped);
 
 		BYTE* bits = (BYTE*)mapped.pData;
 		DirectX::XMINT2 origin;
@@ -1592,33 +1560,27 @@ class Text : public Sprite {
 
 		for (int y = origin.y; y < origin.y + bitmapSize.y; y++) {
 			for (int x = origin.x; x < origin.x + bitmapSize.x; x++) {
-				DWORD alpha = (255 * textureBuffer[x - origin.x + bitmapSize.x * (y - origin.y)]) / (LEVEL - 1);
+				DWORD alpha = (255 * buffer[x - origin.x + bitmapSize.x * (y - origin.y)]) / (LEVEL - 1);
 				DWORD color = 0x00ffffff | (alpha << 24);
 				memcpy((BYTE*)bits + mapped.RowPitch * y + 4 * x, &color, sizeof(DWORD));
 			}
 		}
 
-		App::GetGraphicsContext().Unmap(texture.Get(), D3D11CalcSubresource(0, 0, 1));
-		delete[] textureBuffer;
+		//App::GetGraphicsContext().Unmap(texture.Get(), D3D11CalcSubresource(0, 0, 1));
 	}
 };
 
-class Voice : public Constructable<>, public Loadable, public IXAudio2VoiceCallback {
+class Voice : public IXAudio2VoiceCallback {
 	PROTECTED Microsoft::WRL::ComPtr<IMFSourceReader> sourceReader;
 	PROTECTED IXAudio2SourceVoice* sourceVoice;
 
-	PUBLIC Voice(wchar_t* filePath) {
-		Initialize();
+	PUBLIC Voice(const wchar_t* const filePath) {
 		Load(filePath);
 	}
 	PUBLIC ~Voice() {
 		sourceVoice->DestroyVoice();
 	}
-	PROTECTED void Initialize() override {
-	}
-	PROTECTED void Construct() override {
-	}
-	PUBLIC void Load(const wchar_t* const filePath) override {
+	PUBLIC void Load(const wchar_t* const filePath) {
 		App::GetAudioEngine();
 
 		Microsoft::WRL::ComPtr<IStream> stream;
@@ -1648,7 +1610,7 @@ class Voice : public Constructable<>, public Loadable, public IXAudio2VoiceCallb
 
 		App::GetAudioEngine().CreateSourceVoice(&sourceVoice, waveFormat, XAUDIO2_VOICE_NOPITCH, 1.0f, this);
 	}
-	PUBLIC void Play() {
+	PUBLIC virtual void Play() {
 		sourceVoice->Start();
 		SubmitBuffer();
 	}

@@ -11,7 +11,7 @@
 
 XLIBRARY_NAMESPACE_BEGIN
 
-class Model : public XLibrary11::Constructable<>, public XLibrary11::Loadable {
+class Model {
 	PROTECTED struct FbxManagerDeleter {
 		void operator()(fbxsdk::FbxManager* fbxManager) const {
 			fbxManager->Destroy();
@@ -39,14 +39,12 @@ class Model : public XLibrary11::Constructable<>, public XLibrary11::Loadable {
 	}
 	PUBLIC virtual ~Model() {
 	}
-	PROTECTED void Initialize() override {
+	PROTECTED void Initialize() {
 		position = XLibrary11::Float3(0.0f, 0.0f, 0.0f);
 		angles = XLibrary11::Float3(0.0f, 0.0f, 0.0f);
 		scale = XLibrary11::Float3(1.0f, 1.0f, 1.0f);
 	}
-	PROTECTED void Construct() override {
-	}
-	PUBLIC void Load(const wchar_t* const filePath) override {
+	PUBLIC void Load(const wchar_t* const filePath) {
 		static std::unique_ptr<fbxsdk::FbxManager, FbxManagerDeleter> manager(fbxsdk::FbxManager::Create());
 		std::unique_ptr<fbxsdk::FbxImporter, FbxImporterDeleter> importer(fbxsdk::FbxImporter::Create(manager.get(), ""));
 
@@ -66,7 +64,7 @@ class Model : public XLibrary11::Constructable<>, public XLibrary11::Loadable {
 		LoadMeshRecursively(rootNode);
 	}
 	PUBLIC void Draw() {
-		for (int i = 0; i < meshes.size(); i++) {
+		for (size_t i = 0; i < meshes.size(); i++) {
 			meshes[i]->position = position;
 			meshes[i]->angles = angles;
 			meshes[i]->scale = scale;
