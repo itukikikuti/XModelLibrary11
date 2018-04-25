@@ -4,47 +4,31 @@
 #include <fbxsdk.h>
 
 #if defined(_DLL)
-#pragma comment(lib, "libfbxsdk-md.lib")
+#pragma comment(lib, "x64/debug/libfbxsdk-md.lib")
 #else
 #pragma comment(lib, "libfbxsdk-mt.lib")
 #endif
 
 XLIBRARY_NAMESPACE_BEGIN
 
-class Model {
-	PROTECTED struct FbxManagerDeleter {
-		void operator()(fbxsdk::FbxManager* fbxManager) const {
-			fbxManager->Destroy();
-		}
-	};
-	PROTECTED struct FbxImporterDeleter {
-		void operator()(fbxsdk::FbxImporter* fbxImporter) const {
-			fbxImporter->Destroy();
-		}
-	};
-	PROTECTED struct FbxSceneDeleter {
-		void operator()(fbxsdk::FbxScene* fbxScene) const {
-			fbxScene->Destroy();
-		}
-	};
+class Model
+{
+public:
+	XLibrary11::Float3 position;
+	XLibrary11::Float3 angles;
+	XLibrary11::Float3 scale;
+	std::vector<std::unique_ptr<XLibrary11::Mesh>> meshes;
 
-	PUBLIC XLibrary11::Float3 position;
-	PUBLIC XLibrary11::Float3 angles;
-	PUBLIC XLibrary11::Float3 scale;
-	PUBLIC std::vector<std::unique_ptr<XLibrary11::Mesh>> meshes;
-
-	PUBLIC Model(const wchar_t* const filePath) {
+	Model(const wchar_t* const filePath)
+	{
 		Initialize();
 		Load(filePath);
 	}
-	PUBLIC virtual ~Model() {
+	virtual ~Model()
+	{
 	}
-	PROTECTED void Initialize() {
-		position = XLibrary11::Float3(0.0f, 0.0f, 0.0f);
-		angles = XLibrary11::Float3(0.0f, 0.0f, 0.0f);
-		scale = XLibrary11::Float3(1.0f, 1.0f, 1.0f);
-	}
-	PUBLIC void Load(const wchar_t* const filePath) {
+	void Load(const wchar_t* const filePath)
+	{
 		static std::unique_ptr<fbxsdk::FbxManager, FbxManagerDeleter> manager(fbxsdk::FbxManager::Create());
 		std::unique_ptr<fbxsdk::FbxImporter, FbxImporterDeleter> importer(fbxsdk::FbxImporter::Create(manager.get(), ""));
 
@@ -63,8 +47,10 @@ class Model {
 		fbxsdk::FbxNode* rootNode = scene->GetRootNode();
 		LoadMeshRecursively(rootNode);
 	}
-	PUBLIC void Draw() {
-		for (size_t i = 0; i < meshes.size(); i++) {
+	void Draw()
+	{
+		for (size_t i = 0; i < meshes.size(); i++)
+		{
 			meshes[i]->position = position;
 			meshes[i]->angles = angles;
 			meshes[i]->scale = scale;
@@ -72,17 +58,54 @@ class Model {
 			meshes[i]->Draw();
 		}
 	}
-	PRIVATE void LoadMeshRecursively(FbxNode *node) {
+
+private:
+	struct FbxManagerDeleter
+	{
+		void operator()(fbxsdk::FbxManager* fbxManager) const
+		{
+			fbxManager->Destroy();
+		}
+	};
+	struct FbxImporterDeleter
+	{
+		void operator()(fbxsdk::FbxImporter* fbxImporter) const
+		{
+			fbxImporter->Destroy();
+		}
+	};
+	struct FbxSceneDeleter
+	{
+		void operator()(fbxsdk::FbxScene* fbxScene) const
+		{
+			fbxScene->Destroy();
+		}
+	};
+
+	void Initialize()
+	{
+		position = XLibrary11::Float3(0.0f, 0.0f, 0.0f);
+		angles = XLibrary11::Float3(0.0f, 0.0f, 0.0f);
+		scale = XLibrary11::Float3(1.0f, 1.0f, 1.0f);
+	}
+	void LoadMeshRecursively(FbxNode *node)
+	{
 		fbxsdk::FbxNodeAttribute* attribute = node->GetNodeAttribute();
-		if (attribute) {
-			if (attribute->GetAttributeType() == fbxsdk::FbxNodeAttribute::eMesh) {
+		if (attribute)
+		{
+			if (attribute->GetAttributeType() == fbxsdk::FbxNodeAttribute::eMesh)
+			{
 				fbxsdk::FbxMesh* fbxMesh = node->GetMesh();
 				std::unique_ptr<XLibrary11::Mesh> mesh(new XLibrary11::Mesh());
+				mesh->vertices.clear();
+				mesh->indices.clear();
 
-				for (int i = 0; i < fbxMesh->GetPolygonCount(); i++) {
+				for (int i = 0; i < fbxMesh->GetPolygonCount(); i++)
+				{
 					int verticesSize = fbxMesh->GetPolygonSize(i);
 
-					for (int j = 0; j < verticesSize; j++) {
+					for (int j = 0; j < verticesSize; j++)
+					{
 						int v = fbxMesh->GetPolygonVertex(i, j);
 						const DirectX::XMMATRIX transform = FbxMatrixToXMMatrix(node->EvaluateGlobalTransform());
 
@@ -99,17 +122,22 @@ class Model {
 					}
 				}
 				mesh->Apply();
+				mesh->SetCullingMode(D3D11_CULL_FRONT);
 				meshes.push_back(std::move(mesh));
 			}
 		}
-		for (int i = 0; i < node->GetChildCount(); i++) {
+		for (int i = 0; i < node->GetChildCount(); i++)
+		{
 			LoadMeshRecursively(node->GetChild(i));
 		}
 	}
-	PROTECTED static DirectX::XMMATRIX FbxMatrixToXMMatrix(fbxsdk::FbxAMatrix source) {
+	static DirectX::XMMATRIX FbxMatrixToXMMatrix(fbxsdk::FbxAMatrix source)
+	{
 		DirectX::XMMATRIX destination;
-		for (int x = 0; x < 4; x++) {
-			for (int y = 0; y < 4; y++) {
+		for (int x = 0; x < 4; x++)
+		{
+			for (int y = 0; y < 4; y++)
+			{
 				destination.r[x].m128_f32[y] = static_cast<float>(source.mData[x][y]);
 			}
 		}

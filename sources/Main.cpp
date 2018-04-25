@@ -3,31 +3,27 @@
 #include "XLibrary11.hpp"
 #include "Model.hpp"
 #include "Library.cpp"
-#include <crtdbg.h>
 
 using namespace std;
-using namespace DirectX;
 using namespace XLibrary11;
 
-int Main() {
+int MAIN() {
 	Library::Generate(L"sources/Model.hpp", L"XModelLibrary11.hpp");
-	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 
 	Camera camera;
-	Model model(L"assets/monkey.fbx");
-	Texture texture(L"assets/box.jpg");
 
+	camera.SetDepthTest(true);
+	camera.SetPerspective(60.0f, 0.1f, 100.0f);
 	camera.position = Float3(0.0f, 1.0f, -2.0f);
 	camera.angles.x = 20.0f;
-	for (int i = 0; i < model.meshes.size(); i++) {
-		model.meshes[i]->material.Load(L"assets/test.hlsl");
-		model.meshes[i]->SetCullingMode(D3D11_CULL_FRONT);
-	}
+
+	Model model(L"assets/monkey.fbx");
+	model.meshes[0]->GetMaterial().Load(L"assets/test.hlsl");
 
 	while (App::Refresh()) {
 		camera.Update();
 
-		model.angles.y += App::GetDeltaTime() * 50.0f;
+		model.angles.y += App::GetDeltaTime() * 100.0f;
 		model.Draw();
 	}
 
