@@ -3,11 +3,28 @@
 
 #include <fbxsdk.h>
 
-#if defined(_DLL)
-#pragma comment(lib, "x64/debug/libfbxsdk-md.lib")
+#if defined(_WIN64)
+#define A "x64/"
 #else
-#pragma comment(lib, "libfbxsdk-mt.lib")
+#define A "x86/"
 #endif
+
+#if defined(_DEBUG)
+#define B "debug/"
+#else
+#define B "release/"
+#endif
+
+#if defined(_DLL)
+#define C "libfbxsdk-md.lib"
+#else
+#define C "libfbxsdk-mt.lib"
+#endif
+
+#pragma comment(lib, A B C)
+#undef A
+#undef B
+#undef C
 
 XLIBRARY_NAMESPACE_BEGIN
 
@@ -30,12 +47,12 @@ public:
 	void Load(const wchar_t* const filePath)
 	{
 		static std::unique_ptr<fbxsdk::FbxManager, FbxManagerDeleter> manager(fbxsdk::FbxManager::Create());
-		std::unique_ptr<fbxsdk::FbxImporter, FbxImporterDeleter> importer(fbxsdk::FbxImporter::Create(manager.get(), ""));
 
 		size_t length = wcslen(filePath) + 1;
 		std::unique_ptr<char[]> cFilePath(new char[length]);
 		wcstombs_s(nullptr, cFilePath.get(), length, filePath, _TRUNCATE);
 
+		std::unique_ptr<fbxsdk::FbxImporter, FbxImporterDeleter> importer(fbxsdk::FbxImporter::Create(manager.get(), ""));
 		importer->Initialize(cFilePath.get(), -1, manager->GetIOSettings());
 
 		std::unique_ptr<fbxsdk::FbxScene, FbxSceneDeleter> scene(fbxsdk::FbxScene::Create(manager.get(), ""));
