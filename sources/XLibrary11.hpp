@@ -8,6 +8,7 @@
 #include <forward_list>
 #include <fstream>
 #include <memory>
+#include <string>
 #include <vector>
 #include <Windows.h>
 #include <atlbase.h>

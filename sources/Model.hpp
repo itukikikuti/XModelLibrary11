@@ -46,23 +46,29 @@ public:
 	}
 	void Load(const wchar_t* const filePath)
 	{
-		static std::unique_ptr<fbxsdk::FbxManager, FbxManagerDeleter> manager(fbxsdk::FbxManager::Create());
+		static std::unique_ptr<FbxManager, FbxManagerDeleter> manager(FbxManager::Create());
 
 		size_t length = wcslen(filePath) + 1;
 		std::unique_ptr<char[]> cFilePath(new char[length]);
 		wcstombs_s(nullptr, cFilePath.get(), length, filePath, _TRUNCATE);
 
-		std::unique_ptr<fbxsdk::FbxImporter, FbxImporterDeleter> importer(fbxsdk::FbxImporter::Create(manager.get(), ""));
+		std::unique_ptr<FbxImporter, FbxImporterDeleter> importer(FbxImporter::Create(manager.get(), ""));
 		importer->Initialize(cFilePath.get(), -1, manager->GetIOSettings());
 
-		std::unique_ptr<fbxsdk::FbxScene, FbxSceneDeleter> scene(fbxsdk::FbxScene::Create(manager.get(), ""));
+		std::unique_ptr<FbxScene, FbxSceneDeleter> scene(FbxScene::Create(manager.get(), ""));
 		importer->Import(scene.get());
 
-		fbxsdk::FbxGeometryConverter converter(manager.get());
+		FbxGeometryConverter converter(manager.get());
 		converter.Triangulate(scene.get(), true);
 
-		fbxsdk::FbxNode* rootNode = scene->GetRootNode();
-		LoadMeshRecursively(rootNode);
+		FbxNode* rootNode = scene->GetRootNode();
+		LoadMesh(rootNode);
+
+		if (scene->GetSrcObjectCount<FbxAnimStack>() <= 0)
+			return;
+
+		std::vector<std::string> boneName;
+		LoadBone(rootNode, boneName);
 	}
 	void Draw()
 	{
@@ -79,21 +85,21 @@ public:
 private:
 	struct FbxManagerDeleter
 	{
-		void operator()(fbxsdk::FbxManager* fbxManager) const
+		void operator()(FbxManager* fbxManager) const
 		{
 			fbxManager->Destroy();
 		}
 	};
 	struct FbxImporterDeleter
 	{
-		void operator()(fbxsdk::FbxImporter* fbxImporter) const
+		void operator()(FbxImporter* fbxImporter) const
 		{
 			fbxImporter->Destroy();
 		}
 	};
 	struct FbxSceneDeleter
 	{
-		void operator()(fbxsdk::FbxScene* fbxScene) const
+		void operator()(FbxScene* fbxScene) const
 		{
 			fbxScene->Destroy();
 		}
@@ -105,14 +111,14 @@ private:
 		angles = XLibrary11::Float3(0.0f, 0.0f, 0.0f);
 		scale = XLibrary11::Float3(1.0f, 1.0f, 1.0f);
 	}
-	void LoadMeshRecursively(FbxNode *node)
+	void LoadMesh(FbxNode *node)
 	{
-		fbxsdk::FbxNodeAttribute* attribute = node->GetNodeAttribute();
+		FbxNodeAttribute* attribute = node->GetNodeAttribute();
 		if (attribute)
 		{
-			if (attribute->GetAttributeType() == fbxsdk::FbxNodeAttribute::eMesh)
+			if (attribute->GetAttributeType() == FbxNodeAttribute::eMesh)
 			{
-				fbxsdk::FbxMesh* fbxMesh = node->GetMesh();
+				FbxMesh* fbxMesh = node->GetMesh();
 				std::unique_ptr<XLibrary11::Mesh> mesh(new XLibrary11::Mesh());
 				mesh->vertices.clear();
 				mesh->indices.clear();
@@ -126,11 +132,11 @@ private:
 						int v = fbxMesh->GetPolygonVertex(i, j);
 						const DirectX::XMMATRIX transform = FbxMatrixToXMMatrix(node->EvaluateGlobalTransform());
 
-						fbxsdk::FbxVector4* fbxPosition = fbxMesh->GetControlPoints();
+						FbxVector4* fbxPosition = fbxMesh->GetControlPoints();
 						XLibrary11::Float3 position(static_cast<float>(-fbxPosition[v].mData[0]), static_cast<float>(-fbxPosition[v].mData[1]), static_cast<float>(-fbxPosition[v].mData[2]));
 						DirectX::XMVector3TransformCoord(position, transform);
 
-						fbxsdk::FbxVector4 fbxNormal;
+						FbxVector4 fbxNormal;
 						fbxMesh->GetPolygonVertexNormal(i, j, fbxNormal);
 						XLibrary11::Float3 normal(static_cast<float>(-fbxNormal.mData[0]), static_cast<float>(-fbxNormal.mData[1]), static_cast<float>(-fbxNormal.mData[2]));
 						DirectX::XMVector3TransformCoord(normal, transform);
@@ -145,10 +151,25 @@ private:
 		}
 		for (int i = 0; i < node->GetChildCount(); i++)
 		{
-			LoadMeshRecursively(node->GetChild(i));
+			LoadMesh(node->GetChild(i));
 		}
 	}
-	static DirectX::XMMATRIX FbxMatrixToXMMatrix(fbxsdk::FbxAMatrix source)
+	void LoadBone(FbxNode *node, std::vector<std::string>& boneName)
+	{
+		if (node->GetNodeAttribute() != nullptr)
+		{
+			if (node->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eSkeleton)
+			{
+				boneName.push_back(node->GetName());
+			}
+		}
+
+		for (int i = 0; i < node->GetChildCount(); i++)
+		{
+			LoadBone(node->GetChild(i), boneName);
+		}
+	}
+	static DirectX::XMMATRIX FbxMatrixToXMMatrix(FbxAMatrix source)
 	{
 		DirectX::XMMATRIX destination;
 		for (int x = 0; x < 4; x++)

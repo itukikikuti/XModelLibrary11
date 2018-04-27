@@ -7,23 +7,30 @@
 using namespace std;
 using namespace XLibrary11;
 
-int MAIN() {
+int MAIN()
+{
 	Library::Generate(L"sources/Model.hpp", L"XModelLibrary11.hpp");
 
 	Camera camera;
-
 	camera.SetDepthTest(true);
 	camera.SetPerspective(60.0f, 0.1f, 100.0f);
 	camera.position = Float3(0.0f, 1.0f, -2.0f);
 	camera.angles.x = 20.0f;
 
-	Model model(L"assets/monkey.fbx");
-	model.meshes[0]->GetMaterial().Load(L"assets/test.hlsl");
+	Texture texture(L"assets/drone.jpg");
 
-	while (App::Refresh()) {
+	Model model(L"assets/drone.fbx");
+	model.scale = 0.01f;
+	for (int i = 0; i < model.meshes.size(); i++)
+	{
+		model.meshes[i]->GetMaterial().SetTexture(0, &texture);
+	}
+
+	while (App::Refresh())
+	{
 		camera.Update();
 
-		model.angles.y += App::GetDeltaTime() * 100.0f;
+		model.angles.y += App::GetDeltaTime() * 50.0f;
 		model.Draw();
 	}
 
