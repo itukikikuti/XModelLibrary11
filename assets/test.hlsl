@@ -28,6 +28,7 @@ Pixel VS(Vertex vertex)
     output.position = mul(output.position, view);
     output.position = mul(output.position, projection);
     output.normal = mul(vertex.normal, (float3x3)world);
+	//output.position += float4(output.normal * 5.0, 0.0);
     output.uv = vertex.uv;
     return output;
 }

@@ -23,7 +23,8 @@ int MAIN()
 	model.scale = 0.01f;
 	for (int i = 0; i < model.meshes.size(); i++)
 	{
-		model.meshes[i]->GetMaterial().SetTexture(0, &texture);
+		//model.meshes[i]->GetMaterial().SetTexture(0, &texture);
+		model.meshes[i]->GetMaterial().Load(L"assets/test.hlsl");
 	}
 
 	while (App::Refresh())

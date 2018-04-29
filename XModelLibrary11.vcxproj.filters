@@ -20,5 +20,8 @@
     <ClInclude Include="sources\Model.hpp">
       <Filter>sources</Filter>
     </ClInclude>
+    <ClInclude Include="sources\Animation.hpp">
+      <Filter>sources</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

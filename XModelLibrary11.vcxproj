@@ -128,6 +128,7 @@
     <ClCompile Include="sources\Main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="sources\Animation.hpp" />
     <ClInclude Include="sources\Model.hpp" />
     <ClInclude Include="sources\XLibrary11.hpp" />
   </ItemGroup>

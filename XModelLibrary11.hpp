@@ -28,6 +28,8 @@
 
 namespace XLibrary11 {
 
+using namespace DirectX;
+
 class Model
 {
 public:
@@ -36,6 +38,10 @@ public:
 	XLibrary11::Float3 scale;
 	std::vector<std::unique_ptr<XLibrary11::Mesh>> meshes;
 
+	Model()
+	{
+		Initialize();
+	}
 	Model(const wchar_t* const filePath)
 	{
 		Initialize();
@@ -62,13 +68,9 @@ public:
 		converter.Triangulate(scene.get(), true);
 
 		FbxNode* rootNode = scene->GetRootNode();
-		LoadMesh(rootNode);
+		LoadMeshAll(rootNode);
 
-		if (scene->GetSrcObjectCount<FbxAnimStack>() <= 0)
-			return;
-
-		std::vector<std::string> boneName;
-		LoadBone(rootNode, boneName);
+		LoadAnimationAll(scene.get(), rootNode, "Take 001");
 	}
 	void Draw()
 	{
@@ -83,6 +85,20 @@ public:
 	}
 
 private:
+class Animation
+{
+public:
+	float length = 0.0f;
+	std::vector<std::vector<XMMATRIX>> animationData;
+
+	Animation()
+	{
+	}
+	~Animation()
+	{
+	}
+};
+
 	struct FbxManagerDeleter
 	{
 		void operator()(FbxManager* fbxManager) const
@@ -105,76 +121,185 @@ private:
 		}
 	};
 
+	std::vector<std::string> boneList;
+	std::unordered_map<std::string, Animation> animationMap;
+
 	void Initialize()
 	{
+		XLibrary11::App::Initialize();
+
 		position = XLibrary11::Float3(0.0f, 0.0f, 0.0f);
 		angles = XLibrary11::Float3(0.0f, 0.0f, 0.0f);
 		scale = XLibrary11::Float3(1.0f, 1.0f, 1.0f);
 	}
-	void LoadMesh(FbxNode *node)
+	void LoadMeshAll(FbxNode *node)
 	{
-		FbxNodeAttribute* attribute = node->GetNodeAttribute();
-		if (attribute)
-		{
-			if (attribute->GetAttributeType() == FbxNodeAttribute::eMesh)
-			{
-				FbxMesh* fbxMesh = node->GetMesh();
-				std::unique_ptr<XLibrary11::Mesh> mesh(new XLibrary11::Mesh());
-				mesh->vertices.clear();
-				mesh->indices.clear();
+		LoadMesh(node);
 
-				for (int i = 0; i < fbxMesh->GetPolygonCount(); i++)
-				{
-					int verticesSize = fbxMesh->GetPolygonSize(i);
-
-					for (int j = 0; j < verticesSize; j++)
-					{
-						int v = fbxMesh->GetPolygonVertex(i, j);
-						const DirectX::XMMATRIX transform = FbxMatrixToXMMatrix(node->EvaluateGlobalTransform());
-
-						FbxVector4* fbxPosition = fbxMesh->GetControlPoints();
-						XLibrary11::Float3 position(static_cast<float>(-fbxPosition[v].mData[0]), static_cast<float>(-fbxPosition[v].mData[1]), static_cast<float>(-fbxPosition[v].mData[2]));
-						DirectX::XMVector3TransformCoord(position, transform);
-
-						FbxVector4 fbxNormal;
-						fbxMesh->GetPolygonVertexNormal(i, j, fbxNormal);
-						XLibrary11::Float3 normal(static_cast<float>(-fbxNormal.mData[0]), static_cast<float>(-fbxNormal.mData[1]), static_cast<float>(-fbxNormal.mData[2]));
-						DirectX::XMVector3TransformCoord(normal, transform);
-
-						FbxStringList uvSetNames;
-						fbxMesh->GetUVSetNames(uvSetNames);
-						FbxVector2 fbxUV;
-						bool isMapped;
-						fbxMesh->GetPolygonVertexUV(i, j, uvSetNames[0], fbxUV, isMapped);
-						XLibrary11::Float2 uv(static_cast<float>(fbxUV.mData[1]), static_cast<float>(fbxUV.mData[0]));
-
-						mesh->vertices.push_back(XLibrary11::Vertex(position, normal, uv));
-					}
-				}
-				mesh->Apply();
-				mesh->SetCullingMode(D3D11_CULL_FRONT);
-				meshes.push_back(std::move(mesh));
-			}
-		}
 		for (int i = 0; i < node->GetChildCount(); i++)
 		{
-			LoadMesh(node->GetChild(i));
+			LoadMeshAll(node->GetChild(i));
 		}
 	}
-	void LoadBone(FbxNode *node, std::vector<std::string>& boneName)
+	void LoadMesh(FbxNode *node)
 	{
-		if (node->GetNodeAttribute() != nullptr)
+		if (!node->GetVisibility())
+			return;
+
+		FbxNodeAttribute* attribute = node->GetNodeAttribute();
+		if (attribute == nullptr)
+			return;
+
+		if (attribute->GetAttributeType() == FbxNodeAttribute::eMesh)
 		{
-			if (node->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eSkeleton)
+			FbxMesh* mesh = node->GetMesh();
+			std::unique_ptr<XLibrary11::Mesh> item(new XLibrary11::Mesh());
+			item->vertices.clear();
+			item->indices.clear();
+
+			for (int i = 0; i < mesh->GetPolygonCount(); i++)
 			{
-				boneName.push_back(node->GetName());
+				int verticesSize = mesh->GetPolygonSize(i);
+
+				for (int j = 0; j < verticesSize; j++)
+				{
+					int v = mesh->GetPolygonVertex(i, j);
+					const DirectX::XMMATRIX transform = FbxMatrixToXMMatrix(node->EvaluateGlobalTransform());
+
+					FbxVector4* fbxPosition = mesh->GetControlPoints();
+					XLibrary11::Float3 position(static_cast<float>(-fbxPosition[v].mData[0]), static_cast<float>(fbxPosition[v].mData[1]), static_cast<float>(fbxPosition[v].mData[2]));
+					DirectX::XMVector3TransformCoord(position, transform);
+
+					FbxVector4 fbxNormal;
+					mesh->GetPolygonVertexNormal(i, j, fbxNormal);
+					XLibrary11::Float3 normal(static_cast<float>(fbxNormal.mData[0]), static_cast<float>(fbxNormal.mData[1]), static_cast<float>(fbxNormal.mData[2]));
+					DirectX::XMVector3TransformCoord(normal, transform);
+
+					FbxStringList uvSetNames;
+					mesh->GetUVSetNames(uvSetNames);
+					FbxVector2 fbxUV;
+					bool isMapped;
+					mesh->GetPolygonVertexUV(i, j, uvSetNames[0], fbxUV, isMapped);
+					XLibrary11::Float2 uv(static_cast<float>(fbxUV.mData[0]), static_cast<float>(fbxUV.mData[1]));
+
+					item->vertices.push_back(XLibrary11::Vertex(position, normal, uv));
+				}
 			}
+			item->Apply();
+			item->SetCullingMode(D3D11_CULL_FRONT);
+			meshes.push_back(std::move(item));
 		}
+
+		if (attribute->GetAttributeType() == FbxNodeAttribute::eSkeleton)
+		{
+			boneList.push_back(node->GetName());
+		}
+	}
+	void LoadAnimationAll(FbxScene *scene, FbxNode *node, std::string name)
+	{
+		FbxAnimStack *animStack = scene->GetSrcObject<FbxAnimStack>();
+		FbxAnimLayer *animLayer = animStack->GetMember<FbxAnimLayer>();
+
+		animationMap[name].length = animStack->GetLocalTimeSpan().GetDuration().GetMilliSeconds() / 1000.0f;
+		int frameLength = (int)(animationMap[name].length * 60.0f);
+		animationMap[name].animationData.resize(frameLength);
+
+		for (int i = 0; i < frameLength; i++)
+		{
+			FbxTime time;
+			time.SetMilliSeconds(i / 60.0f * 1000.0f);
+			animationMap[name].animationData[i].resize(boneList.size());
+			SetBoneMatrixAtTimeAll(node, name, i, time);
+		}
+	}
+	void SetBoneMatrixAtTimeAll(FbxNode *node, std::string name, int index, FbxTime& time)
+	{
+		SetBoneMatrixAtTime(node, name, index, time);
 
 		for (int i = 0; i < node->GetChildCount(); i++)
 		{
-			LoadBone(node->GetChild(i), boneName);
+			SetBoneMatrixAtTimeAll(node->GetChild(i), name, index, time);
 		}
+	}
+	void SetBoneMatrixAtTime(FbxNode *node, std::string name, int index, FbxTime& time)
+	{
+		FbxNodeAttribute* attribute = node->GetNodeAttribute();
+
+		if (attribute == nullptr)
+			return;
+
+		if (attribute->GetAttributeType() != FbxNodeAttribute::eMesh)
+			return;
+
+		FbxMesh* mesh = node->GetMesh();
+		int skinCount = mesh->GetDeformerCount(FbxDeformer::eSkin);
+
+		for (int i = 0; i < skinCount; i++)
+		{
+			FbxSkin* skin = (FbxSkin*)mesh->GetDeformer(i, FbxDeformer::eSkin);
+			int clusterCount = skin->GetClusterCount();
+
+			for (int j = 0; j < clusterCount; j++)
+			{
+				FbxCluster* cluster = skin->GetCluster(j);
+				if (cluster->GetLink() == nullptr)
+					continue;
+
+				std::string boneName = cluster->GetLink()->GetName();
+				int boneIndex = 0;
+
+				for (boneIndex = 0; boneIndex < boneList.size(); boneIndex++)
+				{
+					if (boneName.compare(boneList[boneIndex]) == 0)
+						break;
+				}
+
+				FbxAMatrix offsetMatrix = node->EvaluateGlobalTransform(time);
+				FbxAMatrix modelMatrix = GetModelMatrix(node);
+				FbxAMatrix worldMatrix = offsetMatrix * modelMatrix;
+
+				XMMATRIX boneMatrix = GetClusterMatrix(worldMatrix, mesh, cluster, time);
+				XMMATRIX scaling = XMMatrixScaling(0.015f, 0.015f, 0.015f);
+				boneMatrix = boneMatrix * scaling;
+
+				animationMap[name].animationData[index][boneIndex] = boneMatrix;
+			}
+		}
+	}
+	static FbxAMatrix GetModelMatrix(FbxNode* node)
+	{
+		FbxVector4 translation = node->GetGeometricTranslation(FbxNode::eSourcePivot);
+		FbxVector4 rotation = node->GetGeometricRotation(FbxNode::eSourcePivot);
+		FbxVector4 scaling = node->GetGeometricScaling(FbxNode::eSourcePivot);
+
+		return FbxAMatrix(translation, rotation, scaling);
+	}
+	static DirectX::XMMATRIX GetClusterMatrix(FbxAMatrix& worldMatrix, FbxMesh* mesh, FbxCluster* cluster, FbxTime& time)
+	{
+		XLibrary11::Float4 plane(1.0f, 0.0f, 0.0f, 0.0f);
+		FbxAMatrix reflection = FbxMatrixReflect(plane);
+
+		FbxAMatrix clusterTransformMatrix;
+		cluster->GetTransformMatrix(clusterTransformMatrix);
+		clusterTransformMatrix = reflection * clusterTransformMatrix;
+
+		FbxAMatrix meshModelMatrix = GetModelMatrix(mesh->GetNode());
+		meshModelMatrix = reflection * meshModelMatrix;
+
+		clusterTransformMatrix *= meshModelMatrix;
+
+		FbxAMatrix clusterTransformLinkMatrix;
+		cluster->GetTransformLinkMatrix(clusterTransformLinkMatrix);
+		clusterTransformLinkMatrix = reflection * clusterTransformLinkMatrix;
+
+		FbxAMatrix clusterOffsetMatrix = cluster->GetLink()->EvaluateGlobalTransform(time);
+		clusterOffsetMatrix = reflection * clusterOffsetMatrix;
+
+		FbxAMatrix clusterTransformInverseMatrix = clusterTransformLinkMatrix.Inverse() * clusterTransformMatrix;
+
+		FbxAMatrix clusterInverseMatrix = worldMatrix.Inverse() * clusterOffsetMatrix;
+
+		return FbxMatrixToXMMatrix(clusterInverseMatrix * clusterTransformInverseMatrix);
 	}
 	static DirectX::XMMATRIX FbxMatrixToXMMatrix(FbxAMatrix source)
 	{
@@ -187,6 +312,30 @@ private:
 			}
 		}
 		return destination;
+	}
+	static FbxAMatrix FbxMatrixReflect(XLibrary11::Float4 plane)
+	{
+		plane = XMPlaneNormalize(plane);
+		FbxAMatrix reflection;
+
+		reflection.mData[0][0] = -2.0f * plane.x * plane.x + 1.0f;
+		reflection.mData[0][1] = -2.0f * plane.y * plane.x;
+		reflection.mData[0][2] = -2.0f * plane.z * plane.x;
+		reflection.mData[0][3] = 0.0f;
+		reflection.mData[1][0] = -2.0f * plane.x * plane.y;
+		reflection.mData[1][1] = -2.0f * plane.y * plane.y + 1.0f;
+		reflection.mData[1][2] = -2.0f * plane.z * plane.y;
+		reflection.mData[1][3] = 0.0f;
+		reflection.mData[2][0] = -2.0f * plane.x * plane.z;
+		reflection.mData[2][1] = -2.0f * plane.y * plane.z;
+		reflection.mData[2][2] = -2.0f * plane.z * plane.z + 1.0f;
+		reflection.mData[2][3] = 0.0f;
+		reflection.mData[3][0] = -2.0f * plane.x * plane.w;
+		reflection.mData[3][1] = -2.0f * plane.y * plane.w;
+		reflection.mData[3][2] = -2.0f * plane.z * plane.w;
+		reflection.mData[3][3] = 1.0f;
+
+		return reflection;
 	}
 };
 
