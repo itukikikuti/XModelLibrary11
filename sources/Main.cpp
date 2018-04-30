@@ -25,7 +25,7 @@ int MAIN()
 	for (int i = 0; i < model.meshes.size(); i++)
 	{
 		model.meshes[i]->GetMaterial().SetTexture(0, &texture);
-		//model.meshes[i]->GetMaterial().Load(L"assets/test.hlsl");
+		model.meshes[i]->GetMaterial().Load(L"assets/test.hlsl");
 	}
 
 	while (App::Refresh())
