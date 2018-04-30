@@ -38,6 +38,7 @@ float4 PS(Pixel pixel) : SV_TARGET
     float3 lightDirection = normalize(float3(0.25, -1.0, 0.5));
     float3 lightColor = float3(1.0, 1.0, 1.0);
     //float4 diffuseColor = texture0.Sample(sampler0, pixel.uv);
+
     float3 diffuseIntensity = dot(-lightDirection, normal) * lightColor;
     float3 ambientIntensity = lightColor * 0.2;
     return /* diffuseColor * */float4(diffuseIntensity + ambientIntensity, 1);

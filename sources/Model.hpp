@@ -158,20 +158,21 @@ private:
 					const DirectX::XMMATRIX transform = FbxMatrixToXMMatrix(node->EvaluateGlobalTransform());
 
 					FbxVector4* fbxPosition = mesh->GetControlPoints();
-					XLibrary11::Float3 position(static_cast<float>(-fbxPosition[v].mData[0]), static_cast<float>(fbxPosition[v].mData[1]), static_cast<float>(fbxPosition[v].mData[2]));
+					XLibrary11::Float3 position(static_cast<float>(-fbxPosition[v].mData[0]), static_cast<float>(-fbxPosition[v].mData[1]), static_cast<float>(-fbxPosition[v].mData[2]));
 					DirectX::XMVector3TransformCoord(position, transform);
 
 					FbxVector4 fbxNormal;
 					mesh->GetPolygonVertexNormal(i, j, fbxNormal);
-					XLibrary11::Float3 normal(static_cast<float>(fbxNormal.mData[0]), static_cast<float>(fbxNormal.mData[1]), static_cast<float>(fbxNormal.mData[2]));
+					XLibrary11::Float3 normal(static_cast<float>(-fbxNormal.mData[0]), static_cast<float>(-fbxNormal.mData[1]), static_cast<float>(-fbxNormal.mData[2]));
 					DirectX::XMVector3TransformCoord(normal, transform);
 
 					FbxStringList uvSetNames;
 					mesh->GetUVSetNames(uvSetNames);
 					FbxVector2 fbxUV;
 					bool isMapped;
-					mesh->GetPolygonVertexUV(i, j, uvSetNames[0], fbxUV, isMapped);
-					XLibrary11::Float2 uv(static_cast<float>(fbxUV.mData[0]), static_cast<float>(fbxUV.mData[1]));
+					if (mesh->GetElementUVCount() > 0)
+						mesh->GetPolygonVertexUV(i, j, uvSetNames[0], fbxUV, isMapped);
+					XLibrary11::Float2 uv(static_cast<float>(fbxUV.mData[0]), static_cast<float>(1.0f - fbxUV.mData[1]));
 
 					item->vertices.push_back(XLibrary11::Vertex(position, normal, uv));
 				}
@@ -189,6 +190,9 @@ private:
 	void LoadAnimationAll(FbxScene *scene, FbxNode *node, std::string name)
 	{
 		FbxAnimStack *animStack = scene->GetSrcObject<FbxAnimStack>();
+		if (animStack == nullptr)
+			return;
+
 		FbxAnimLayer *animLayer = animStack->GetMember<FbxAnimLayer>();
 
 		animationMap[name].length = animStack->GetLocalTimeSpan().GetDuration().GetMilliSeconds() / 1000.0f;

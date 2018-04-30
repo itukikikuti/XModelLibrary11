@@ -14,17 +14,18 @@ int MAIN()
 	Camera camera;
 	camera.SetDepthTest(true);
 	camera.SetPerspective(60.0f, 0.1f, 100.0f);
-	camera.position = Float3(0.0f, 1.0f, -2.0f);
+	camera.position = Float3(0.0f, 3.0f, -5.0f);
 	camera.angles.x = 20.0f;
 
 	Texture texture(L"assets/drone.jpg");
 
 	Model model(L"assets/drone.fbx");
-	model.scale = 0.01f;
+	model.angles.x = 90.0f;
+	model.scale = 0.02f;
 	for (int i = 0; i < model.meshes.size(); i++)
 	{
-		//model.meshes[i]->GetMaterial().SetTexture(0, &texture);
-		model.meshes[i]->GetMaterial().Load(L"assets/test.hlsl");
+		model.meshes[i]->GetMaterial().SetTexture(0, &texture);
+		//model.meshes[i]->GetMaterial().Load(L"assets/test.hlsl");
 	}
 
 	while (App::Refresh())
