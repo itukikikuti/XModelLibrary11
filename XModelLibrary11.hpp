@@ -55,11 +55,11 @@ public:
 		static std::unique_ptr<FbxManager, FbxManagerDeleter> manager(FbxManager::Create());
 
 		size_t length = wcslen(filePath) + 1;
-		std::unique_ptr<char[]> cFilePath(new char[length]);
-		wcstombs_s(nullptr, cFilePath.get(), length, filePath, _TRUNCATE);
+		std::unique_ptr<char[]> charFilePath(new char[length]);
+		wcstombs_s(nullptr, charFilePath.get(), length, filePath, _TRUNCATE);
 
 		std::unique_ptr<FbxImporter, FbxImporterDeleter> importer(FbxImporter::Create(manager.get(), ""));
-		importer->Initialize(cFilePath.get(), -1, manager->GetIOSettings());
+		importer->Initialize(charFilePath.get(), -1, manager->GetIOSettings());
 
 		std::unique_ptr<FbxScene, FbxSceneDeleter> scene(FbxScene::Create(manager.get(), ""));
 		importer->Import(scene.get());
@@ -70,10 +70,16 @@ public:
 		FbxNode* rootNode = scene->GetRootNode();
 		LoadMeshAll(rootNode);
 
-		LoadAnimationAll(scene.get(), rootNode, "Take 001");
+		LoadAnimation(scene.get(), rootNode, "Take 001");
 	}
 	void Draw()
 	{
+		frame++;
+		if (animationMap["Take 001"].animationData.size() <= frame + 1)
+			frame = 0;
+
+		constant.bone = animationMap["Take 001"].animationData[frame][0];
+
 		for (size_t i = 0; i < meshes.size(); i++)
 		{
 			meshes[i]->position = position;
@@ -111,7 +117,13 @@ private:
 		float length = 0.0f;
 		std::vector<std::vector<XMMATRIX>> animationData;
 	};
+	struct Constant
+	{
+		XMMATRIX bone;
+	};
 
+	Constant constant;
+	int frame;
 	std::vector<std::string> boneList;
 	std::unordered_map<std::string, Animation> animationMap;
 
@@ -122,6 +134,8 @@ private:
 		position = XLibrary11::Float3(0.0f, 0.0f, 0.0f);
 		angles = XLibrary11::Float3(0.0f, 0.0f, 0.0f);
 		scale = XLibrary11::Float3(1.0f, 1.0f, 1.0f);
+
+		frame = 0;
 	}
 	void LoadMeshAll(FbxNode *node)
 	{
@@ -179,6 +193,7 @@ private:
 			}
 			item->Apply();
 			item->SetCullingMode(D3D11_CULL_FRONT);
+			item->GetMaterial().SetBuffer(2, &constant, sizeof(Constant));
 			meshes.push_back(std::move(item));
 		}
 
@@ -187,36 +202,36 @@ private:
 			boneList.push_back(node->GetName());
 		}
 	}
-	void LoadAnimationAll(FbxScene *scene, FbxNode *node, std::string name)
+	void LoadAnimation(FbxScene *scene, FbxNode *node, std::string name)
 	{
 		FbxAnimStack *animStack = scene->GetSrcObject<FbxAnimStack>();
 		if (animStack == nullptr)
 			return;
 
-		FbxAnimLayer *animLayer = animStack->GetMember<FbxAnimLayer>();
+		//FbxAnimLayer *animLayer = animStack->GetMember<FbxAnimLayer>();
 
 		animationMap[name].length = animStack->GetLocalTimeSpan().GetDuration().GetMilliSeconds() / 1000.0f;
-		int frameLength = (int)(animationMap[name].length * 60.0f);
-		animationMap[name].animationData.resize(frameLength);
+		int frameCount = (int)(animationMap[name].length * 60.0f);
+		animationMap[name].animationData.resize(frameCount);
 
-		for (int i = 0; i < frameLength; i++)
+		for (int i = 0; i < frameCount; i++)
 		{
 			FbxTime time;
 			time.SetMilliSeconds(i / 60.0f * 1000.0f);
 			animationMap[name].animationData[i].resize(boneList.size());
-			SetBoneMatrixAtTimeAll(node, name, i, time);
+			LoadBoneMatrixAll(node, name, i, time);
 		}
 	}
-	void SetBoneMatrixAtTimeAll(FbxNode *node, std::string name, int index, FbxTime& time)
+	void LoadBoneMatrixAll(FbxNode *node, std::string name, int index, FbxTime& time)
 	{
-		SetBoneMatrixAtTime(node, name, index, time);
+		LoadBoneMatrix(node, name, index, time);
 
 		for (int i = 0; i < node->GetChildCount(); i++)
 		{
-			SetBoneMatrixAtTimeAll(node->GetChild(i), name, index, time);
+			LoadBoneMatrixAll(node->GetChild(i), name, index, time);
 		}
 	}
-	void SetBoneMatrixAtTime(FbxNode *node, std::string name, int index, FbxTime& time)
+	void LoadBoneMatrix(FbxNode *node, std::string name, int index, FbxTime& time)
 	{
 		FbxNodeAttribute* attribute = node->GetNodeAttribute();
 
@@ -290,12 +305,13 @@ private:
 		FbxAMatrix clusterOffsetMatrix = cluster->GetLink()->EvaluateGlobalTransform(time);
 		clusterOffsetMatrix = reflection * clusterOffsetMatrix;
 
-		FbxAMatrix clusterTransformInverseMatrix = clusterTransformLinkMatrix.Inverse() * clusterTransformMatrix;
+		FbxAMatrix clusterTransformInverseMatrix = clusterTransformLinkMatrix * clusterTransformMatrix;
 
-		FbxAMatrix clusterInverseMatrix = worldMatrix.Inverse() * clusterOffsetMatrix;
+		FbxAMatrix clusterInverseMatrix = worldMatrix * clusterOffsetMatrix;
 
 		return FbxMatrixToXMMatrix(clusterInverseMatrix * clusterTransformInverseMatrix);
 	}
+public:
 	static DirectX::XMMATRIX FbxMatrixToXMMatrix(FbxAMatrix source)
 	{
 		DirectX::XMMATRIX destination;

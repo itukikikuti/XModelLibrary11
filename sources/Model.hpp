@@ -55,11 +55,11 @@ public:
 		static std::unique_ptr<FbxManager, FbxManagerDeleter> manager(FbxManager::Create());
 
 		size_t length = wcslen(filePath) + 1;
-		std::unique_ptr<char[]> cFilePath(new char[length]);
-		wcstombs_s(nullptr, cFilePath.get(), length, filePath, _TRUNCATE);
+		std::unique_ptr<char[]> charFilePath(new char[length]);
+		wcstombs_s(nullptr, charFilePath.get(), length, filePath, _TRUNCATE);
 
 		std::unique_ptr<FbxImporter, FbxImporterDeleter> importer(FbxImporter::Create(manager.get(), ""));
-		importer->Initialize(cFilePath.get(), -1, manager->GetIOSettings());
+		importer->Initialize(charFilePath.get(), -1, manager->GetIOSettings());
 
 		std::unique_ptr<FbxScene, FbxSceneDeleter> scene(FbxScene::Create(manager.get(), ""));
 		importer->Import(scene.get());
@@ -311,6 +311,7 @@ private:
 
 		return FbxMatrixToXMMatrix(clusterInverseMatrix * clusterTransformInverseMatrix);
 	}
+public:
 	static DirectX::XMMATRIX FbxMatrixToXMMatrix(FbxAMatrix source)
 	{
 		DirectX::XMMATRIX destination;

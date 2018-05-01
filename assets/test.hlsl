@@ -37,8 +37,6 @@ Pixel VS(Vertex vertex)
 }
 float4 PS(Pixel pixel) : SV_TARGET
 {
-	return float4(0.0, 0.0, 0.0, 1.0);
-
     float3 normal = normalize(pixel.normal);
     float3 lightDirection = normalize(float3(0.25, -1.0, 0.5));
     float3 lightColor = float3(1.0, 1.0, 1.0);
