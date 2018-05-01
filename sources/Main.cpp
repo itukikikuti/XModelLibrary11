@@ -81,10 +81,12 @@ int MAIN()
 	}
 	item.Apply();
 
-	while (App::Refresh())
-	{
-		camera.Update();
+	const int tempSize = 20;
+	vector<vector<FbxMatrix>> clusterDeformation;
+	clusterDeformation.resize(tempSize);
 
+	for (int i = 0; i < tempSize; i++)
+	{
 		timeCount += FrameTime;
 		if (timeCount > stop) timeCount = start;
 
@@ -94,14 +96,14 @@ int MAIN()
 		FbxVector4 s0 = meshNode->GetGeometricScaling(FbxNode::eSourcePivot);
 		FbxAMatrix geometryOffset = FbxAMatrix(t0, r0, s0);
 
-		FbxMatrix *clusterDeformation = new FbxMatrix[mesh->GetControlPointsCount()];
-		memset(clusterDeformation, 0, sizeof(FbxMatrix) * mesh->GetControlPointsCount());
+		clusterDeformation[i].resize(mesh->GetControlPointsCount());
+		memset(clusterDeformation[i].data(), 0, sizeof(FbxMatrix) * mesh->GetControlPointsCount());
 
 		FbxSkin *skinDeformer = (FbxSkin *)mesh->GetDeformer(0, FbxDeformer::eSkin);
 		int clusterCount = skinDeformer->GetClusterCount();
 
 		for (int clusterIndex = 0; clusterIndex < clusterCount; clusterIndex++) {
-			FbxCluster *cluster = skinDeformer->GetCluster(clusterIndex);
+			FbxCluster* cluster = skinDeformer->GetCluster(clusterIndex);
 			FbxMatrix vertexTransformMatrix;
 			FbxAMatrix referenceGlobalInitPosition;
 			FbxAMatrix clusterGlobalInitPosition;
@@ -116,18 +118,29 @@ int MAIN()
 			clusterRelativeCurrentPositionInverse = globalPosition.Inverse() * clusterGlobalCurrentPosition;
 			vertexTransformMatrix = clusterRelativeCurrentPositionInverse * clusterRelativeInitPosition;
 
-			for (int i = 0; i < cluster->GetControlPointIndicesCount(); i++) {
-				int index = cluster->GetControlPointIndices()[i];
-				double weight = cluster->GetControlPointWeights()[i];
+			for (int j = 0; j < cluster->GetControlPointIndicesCount(); j++) {
+				int index = cluster->GetControlPointIndices()[j];
+				double weight = cluster->GetControlPointWeights()[j];
 				FbxMatrix influence = vertexTransformMatrix * weight;
-				clusterDeformation[index] += influence;
+				clusterDeformation[i][index] += influence;
 			}
 		}
+	}
+
+	int temp = 0;
+
+	while (App::Refresh())
+	{
+		camera.Update();
+
+		temp++;
+		if (temp >= tempSize)
+			temp = 0;
 
 		for (int i = 0; i < mesh->GetControlPointsCount(); i++) {
-			const DirectX::XMMATRIX transform = Model::FbxMatrixToXMMatrix(mesh->GetNode()->EvaluateGlobalTransform());
+			const XMMATRIX transform = Model::FbxMatrixToXMMatrix(mesh->GetNode()->EvaluateGlobalTransform());
 
-			FbxVector4 outVertex = clusterDeformation[i].MultNormalize(mesh->GetControlPointAt(i));
+			FbxVector4 outVertex = clusterDeformation[temp][i].MultNormalize(mesh->GetControlPointAt(i));
 			item.vertices[i].position.x = (FLOAT)outVertex[0];
 			item.vertices[i].position.y = (FLOAT)outVertex[1];
 			item.vertices[i].position.z = (FLOAT)outVertex[2];
@@ -135,9 +148,9 @@ int MAIN()
 			FbxLayerElement::EReferenceMode mode = mesh->GetElementNormal()->GetReferenceMode();
 			FbxVector4 normal = mesh->GetElementNormal()->GetDirectArray().GetAt(i);
 			item.vertices[i].normal = Float3(-normal.mData[0], normal.mData[1], -normal.mData[2]);
+			XMVector3TransformCoord(item.vertices[i].normal, transform);
 		}
 		item.Apply();
-		delete[] clusterDeformation;
 
 		item.Draw();
 

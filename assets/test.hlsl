@@ -49,6 +49,7 @@ float4 PS(Pixel pixel) : SV_TARGET
     float3 ambientIntensity = lightColor * 0.2;
 	float3 specularIntensity = pow(max(dot(viewDirection, reflection), 0.0), 50.0) * 10.0 * lightColor;
 
-	return float4(diffuseIntensity + ambientIntensity + specularIntensity, 1);
+	return float4(diffuseIntensity + ambientIntensity, 1);
+	//return float4(diffuseIntensity + ambientIntensity + specularIntensity, 1);
 	//return diffuseColor * float4(diffuseIntensity + ambientIntensity + specularIntensity, 1);
 }
