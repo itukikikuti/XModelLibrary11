@@ -459,6 +459,9 @@ struct Vertex
     Float3 normal;
     Float2 uv;
 
+	Vertex()
+	{
+	}
     Vertex(Float3 position, Float3 normal, Float2 uv)
     {
         this->position = position;

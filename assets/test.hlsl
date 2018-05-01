@@ -7,8 +7,12 @@ cbuffer Object : register(b1)
 {
     matrix world;
 };
-Texture2D texture0 : register(t0);
-SamplerState sampler0 : register(s0);
+//cbuffer Animation : register(b2)
+//{
+//	matrix bone;
+//};
+//Texture2D texture0 : register(t0);
+//SamplerState sampler0 : register(s0);
 struct Vertex
 {
     float4 position : POSITION;
@@ -28,16 +32,17 @@ Pixel VS(Vertex vertex)
     output.position = mul(output.position, view);
     output.position = mul(output.position, projection);
     output.normal = mul(vertex.normal, (float3x3)world);
-	//output.position += float4(output.normal * 5.0, 0.0);
     output.uv = vertex.uv;
     return output;
 }
 float4 PS(Pixel pixel) : SV_TARGET
 {
+	return float4(0.0, 0.0, 0.0, 1.0);
+
     float3 normal = normalize(pixel.normal);
     float3 lightDirection = normalize(float3(0.25, -1.0, 0.5));
     float3 lightColor = float3(1.0, 1.0, 1.0);
-    float4 diffuseColor = texture0.Sample(sampler0, pixel.uv);
+    //float4 diffuseColor = texture0.Sample(sampler0, pixel.uv);
 
 	float3 viewDirection = normalize(float3(0.0, 3.0, -5.0));
 	float3 reflection = reflect(lightDirection, normal);
@@ -46,7 +51,6 @@ float4 PS(Pixel pixel) : SV_TARGET
     float3 ambientIntensity = lightColor * 0.2;
 	float3 specularIntensity = pow(max(dot(viewDirection, reflection), 0.0), 50.0) * 10.0 * lightColor;
 
-	//return float4(specularIntensity, 1.0);
-	//return float4(diffuseIntensity + ambientIntensity + specularIntensity, 1);
-	return diffuseColor * float4(diffuseIntensity + ambientIntensity + specularIntensity, 1);
+	return float4(diffuseIntensity + ambientIntensity + specularIntensity, 1);
+	//return diffuseColor * float4(diffuseIntensity + ambientIntensity + specularIntensity, 1);
 }
