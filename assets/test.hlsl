@@ -7,10 +7,10 @@ cbuffer Object : register(b1)
 {
     matrix world;
 };
-//cbuffer Animation : register(b2)
-//{
-//	matrix bone;
-//};
+cbuffer Animation : register(b2)
+{
+	matrix bone[100];
+};
 //Texture2D texture0 : register(t0);
 //SamplerState sampler0 : register(s0);
 struct Vertex
@@ -18,6 +18,8 @@ struct Vertex
     float4 position : POSITION;
     float3 normal : NORMAL;
     float2 uv : TEXCOORD;
+	uint4 blendIndices : BLENDINDICES;
+	float4 blendWeights : BLENDWEIGHT;
 };
 struct Pixel
 {
@@ -28,7 +30,32 @@ struct Pixel
 Pixel VS(Vertex vertex)
 {
     Pixel output;
-    output.position = mul(vertex.position, world);
+	float4 position = vertex.position;
+	if(vertex.blendIndices.x < 99999)
+	{
+		matrix m = 0;
+		float weights[4];
+		weights[0] = vertex.blendWeights.x;
+		weights[1] = vertex.blendWeights.y;
+		weights[2] = vertex.blendWeights.z;
+		weights[3] = vertex.blendWeights.w;
+		uint indices[4];
+		indices[0] = vertex.blendIndices.x;
+		indices[1] = vertex.blendIndices.y;
+		indices[2] = vertex.blendIndices.z;
+		indices[3] = vertex.blendIndices.w;
+
+		for (int i = 0; i < 4; i++)
+		{
+			if (weights[i] > 0.0f)
+			{
+				m += bone[indices[i]] * weights[i];
+			}
+		}
+		position = mul(vertex.position, m);
+		position.w = 1.0;
+	}
+	output.position = mul(position, world);
     output.position = mul(output.position, view);
     output.position = mul(output.position, projection);
     output.normal = mul(vertex.normal, (float3x3)world);

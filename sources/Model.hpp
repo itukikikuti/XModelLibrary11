@@ -312,7 +312,7 @@ private:
 		return FbxMatrixToXMMatrix(clusterInverseMatrix * clusterTransformInverseMatrix);
 	}
 public:
-	static DirectX::XMMATRIX FbxMatrixToXMMatrix(FbxAMatrix source)
+	static DirectX::XMMATRIX FbxMatrixToXMMatrix(FbxMatrix source)
 	{
 		DirectX::XMMATRIX destination;
 		for (int x = 0; x < 4; x++)
