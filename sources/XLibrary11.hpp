@@ -1634,7 +1634,7 @@ public:
 	void SetCullingMode(D3D11_CULL_MODE cullingMode)
 	{
 		D3D11_RASTERIZER_DESC rasterizerDesc = {};
-		rasterizerDesc.FillMode = D3D11_FILL_WIREFRAME;
+		rasterizerDesc.FillMode = D3D11_FILL_SOLID;
 		rasterizerDesc.CullMode = cullingMode;
 		rasterizerState.Release();
 		App::GetGraphicsDevice3D().CreateRasterizerState(&rasterizerDesc, &rasterizerState);

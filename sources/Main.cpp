@@ -20,12 +20,14 @@ int MAIN()
 	Camera camera;
 	camera.SetDepthTest(true);
 	camera.SetPerspective(60.0f, 0.1f, 1000.0f);
-	camera.position = Float3(0.0f, 30.0f, 100.0f);
-	camera.angles.y = 180.0f;
+	camera.position = Float3(0.0f, 100.0f, -300.0f);
+	
+	Texture texture(L"assets/drone.jpg");
 
 	Mesh item;
-	item.angles.y = 30.0f;
+	item.angles.x = -90.0f;
 	item.GetMaterial().Load(L"assets/test.hlsl");
+	item.GetMaterial().SetTexture(0, &texture);
 	item.vertices.clear();
 	item.indices.clear();
 	item.Apply();
@@ -43,7 +45,7 @@ int MAIN()
 	converter.Triangulate(fbxScene, true);
 
 	FbxImporter* fbxImporter = FbxImporter::Create(fbxManager, "");
-	fbxImporter->Initialize("assets/humanoid.fbx", -1, fbxManager->GetIOSettings());
+	fbxImporter->Initialize("assets/drone.fbx", -1, fbxManager->GetIOSettings());
 	fbxImporter->Import(fbxScene);
 	fbxImporter->Destroy();
 
@@ -65,22 +67,47 @@ int MAIN()
 	item.vertices.resize(mesh->GetControlPointsCount());
 	for (int i = 0; i < mesh->GetControlPointsCount(); i++)
 	{
-		//const XMMATRIX transform = Model::FbxMatrixToXMMatrix(mesh->GetNode()->EvaluateGlobalTransform());
 
 		//FbxVector4 outVertex = clusterDeformation[temp][i].MultNormalize(mesh->GetControlPointAt(i));
 		FbxVector4 outVertex = mesh->GetControlPointAt(i);
 		item.vertices[i].position = Float3((float)outVertex[0], (float)outVertex[1], (float)outVertex[2]);
 
-		//FbxLayerElement::EReferenceMode mode = mesh->GetElementNormal()->GetReferenceMode();
+		//FbxLayerElement::EMappingMode mappingMode = mesh->GetElementNormal()->GetMappingMode();
+		//FbxLayerElement::EReferenceMode referenceMode = mesh->GetElementNormal()->GetReferenceMode();
 		//FbxVector4 normal = mesh->GetElementNormal()->GetDirectArray().GetAt(i);
 		//item.vertices[i].normal = Float3(-normal.mData[0], normal.mData[1], -normal.mData[2]);
 		//XMVector3TransformCoord(item.vertices[i].normal, transform);
-	}
 
+		//FbxVector2 uv = mesh->GetElementUV()->GetDirectArray().GetAt(i);
+		//item.vertices[i].uv = Float2(uv.mData[0], 1.0f - uv.mData[1]);
+	}
 	item.indices.resize(mesh->GetPolygonVertexCount());
 	for (int i = 0; i < mesh->GetPolygonVertexCount(); i++)
 	{
 		item.indices[i] = mesh->GetPolygonVertices()[i];
+	}
+
+	int index = 0;
+	for (int polygonIndex = 0; polygonIndex < mesh->GetPolygonCount(); polygonIndex++)
+	{
+		int polygonSize = mesh->GetPolygonSize(polygonIndex);
+		for (int i = 0; i < polygonSize; i++)
+		{
+			//const XMMATRIX transform = Model::FbxMatrixToXMMatrix(mesh->GetNode()->EvaluateGlobalTransform());
+
+			FbxVector4 normal = mesh->GetElementNormal()->GetDirectArray().GetAt(index);
+			item.vertices[item.indices[index]].normal = Float3(normal.mData[0], normal.mData[1], normal.mData[2]);
+
+			FbxStringList uvSetNames;
+			mesh->GetUVSetNames(uvSetNames);
+			FbxVector2 uv;// = mesh->GetElementUV()->GetDirectArray().GetAt(index);
+			bool isMapped;
+			if (mesh->GetElementUVCount() > 0)
+				mesh->GetPolygonVertexUV(polygonIndex, i, uvSetNames[0], uv, isMapped);
+			item.vertices[item.indices[index]].uv = Float2(uv.mData[0], 1.0f - uv.mData[1]);
+
+			index++;
+		}
 	}
 
 	item.Apply();
@@ -154,8 +181,6 @@ int MAIN()
 	item.Apply();
 	item.GetMaterial().SetBuffer(2, &constant, sizeof(Constant));
 
-	//Texture texture(L"assets/drone.jpg");
-
 	//Model model(L"assets/humanoid.fbx");
 	//model.angles.x = 90.0f;
 	//model.scale = 0.02f;
@@ -201,6 +226,7 @@ int MAIN()
 
 		item.Apply();
 
+		item.angles.y += 1.0f;
 		item.Draw();
 
 		App::SetTitle(to_wstring(App::GetFrameRate()).c_str());
