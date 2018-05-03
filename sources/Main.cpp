@@ -3,6 +3,7 @@
 #include "XLibrary11.hpp"
 #include "Model.hpp"
 #include "Library.cpp"
+#include <iomanip>
 
 using namespace std;
 using namespace XLibrary11;
@@ -19,7 +20,7 @@ int MAIN()
 	Camera camera;
 	camera.SetDepthTest(true);
 	camera.SetPerspective(60.0f, 0.1f, 1000.0f);
-	camera.position = Float3(0.0f, 70.0f, 300.0f);
+	camera.position = Float3(0.0f, 30.0f, 100.0f);
 	camera.angles.y = 180.0f;
 
 	Mesh item;
@@ -84,7 +85,7 @@ int MAIN()
 
 	item.Apply();
 
-	float length = AnimationStack->GetLocalTimeSpan().GetDuration().GetMilliSeconds() / 100.0f;
+	float length = AnimationStack->GetLocalTimeSpan().GetDuration().GetMilliSeconds() / 1000.0f;
 	const int tempSize = (int)(length * 60.0f);
 	vector<vector<XMMATRIX>> clusterDeformation;
 	clusterDeformation.resize(tempSize);
@@ -96,7 +97,7 @@ int MAIN()
 
 	for (int i = 0; i < tempSize; i++)
 	{
-		time.SetMilliSeconds(i / 60.0f * 100.0f);
+		time.SetMilliSeconds(i / 60.0f * 1000.0f);
 
 		FbxMatrix globalPosition = meshNode->EvaluateGlobalTransform(time);
 		FbxVector4 t0 = meshNode->GetGeometricTranslation(FbxNode::eSourcePivot);
@@ -132,13 +133,17 @@ int MAIN()
 				int index = cluster->GetControlPointIndices()[j];
 				float weight = (float)cluster->GetControlPointWeights()[j];
 				//FbxMatrix influence = vertexTransformMatrix * weight;
-				for (int k = 0; k < 4; k++)
+				for (int k = 0; k < 8; k++)
 				{
-					if (item.vertices[index].blendIndices[k] >= 99999)
-					{
-						item.vertices[index].blendIndices[k] = clusterIndex;
-						item.vertices[index].blendWeights[k] = weight;
-					}
+					if (item.vertices[index].blendIndices[k] == clusterIndex)
+						break;
+
+					if (item.vertices[index].blendIndices[k] < 999)
+						continue;
+
+					item.vertices[index].blendIndices[k] = clusterIndex;
+					item.vertices[index].blendWeights[k] = weight;
+					break;
 				}
 			}
 		}
@@ -158,6 +163,23 @@ int MAIN()
 	//{
 	//	model.meshes[i]->GetMaterial().SetTexture(0, &texture);
 	//	model.meshes[i]->GetMaterial().Load(L"assets/test.hlsl");
+	//}
+
+	//for (int i = 0; i < item.vertices.size(); i++)
+	//{
+	//	cout << "[" << setw(4) << setfill('0') << i << "] " << setfill(' ')
+	//		<< setw(10) << item.vertices[i].position.x << ","
+	//		<< setw(10) << item.vertices[i].position.y << ","
+	//		<< setw(10) << item.vertices[i].position.z << " "
+	//		<< setw(3) << item.vertices[i].blendIndices[0] << ","
+	//		<< setw(3) << item.vertices[i].blendIndices[1] << ","
+	//		<< setw(3) << item.vertices[i].blendIndices[2] << ","
+	//		<< setw(3) << item.vertices[i].blendIndices[3] << " "
+	//		<< setw(12) << item.vertices[i].blendWeights[0] << ","
+	//		<< setw(12) << item.vertices[i].blendWeights[1] << ","
+	//		<< setw(12) << item.vertices[i].blendWeights[2] << ","
+	//		<< setw(12) << item.vertices[i].blendWeights[3] << " "
+	//		<< setw(12) << item.vertices[i].blendWeights[0] + item.vertices[i].blendWeights[1] + item.vertices[i].blendWeights[2] + item.vertices[i].blendWeights[3] << endl;
 	//}
 
 	int temp = 0;
