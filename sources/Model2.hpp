@@ -158,14 +158,31 @@ private:
 		if (attribute->GetAttributeType() == FbxNodeAttribute::eMesh)
 			LoadMesh(scene, node->GetMesh());
 	}
+	bool IsOptimized(FbxMesh* mesh)
+	{
+		if (mesh->GetElementNormal() != nullptr)
+		{
+			if (mesh->GetElementNormal()->GetMappingMode() != FbxLayerElement::EMappingMode::eByControlPoint)
+				return false;
+		}
+
+		if (mesh->GetElementUV() != nullptr)
+		{
+			if (mesh->GetElementUV()->GetMappingMode() != FbxLayerElement::EMappingMode::eByControlPoint)
+				return false;
+		}
+
+		return true;
+	}
 	void LoadMesh(FbxScene* scene, FbxMesh* mesh)
 	{
 		std::unique_ptr<Mesh> item(new Mesh());
 		item->vertices.clear();
 		item->indices.clear();
 
-		if (mesh->GetElementNormal()->GetMappingMode() == FbxLayerElement::EMappingMode::eByControlPoint &&
-			mesh->GetElementUV()->GetMappingMode() == FbxLayerElement::EMappingMode::eByControlPoint)
+		bool isOptimized = IsOptimized(mesh);
+
+		if (isOptimized)
 		{
 			LoadMeshWithControlPoint(mesh, item.get());
 		}
@@ -174,7 +191,7 @@ private:
 			LoadMeshWithPolygonVertex(mesh, item.get());
 		}
 
-		LoadAnim(scene, mesh, item.get());
+		LoadAnim(scene, mesh, item.get(), isOptimized);
 
 		item->Apply();
 		item->GetMaterial().Load(L"assets/test.hlsl");
@@ -191,11 +208,17 @@ private:
 			FbxVector4 position = mesh->GetControlPointAt(i);
 			item->vertices[i].position = Float3(position[0], position[1], position[2]);
 
-			FbxVector4 normal = mesh->GetElementNormal()->GetDirectArray().GetAt(i);
-			item->vertices[i].normal = Float3(normal.mData[0], normal.mData[1], normal.mData[2]);
+			if (mesh->GetElementNormal() != nullptr)
+			{
+				FbxVector4 normal = mesh->GetElementNormal()->GetDirectArray().GetAt(i);
+				item->vertices[i].normal = Float3(normal.mData[0], normal.mData[1], normal.mData[2]);
+			}
 
-			FbxVector2 uv = mesh->GetElementUV()->GetDirectArray().GetAt(i);
-			item->vertices[i].uv = Float2(uv.mData[0], 1.0f - uv.mData[1]);
+			if (mesh->GetElementUV() != nullptr)
+			{
+				FbxVector2 uv = mesh->GetElementUV()->GetDirectArray().GetAt(i);
+				item->vertices[i].uv = Float2(uv.mData[0], 1.0f - uv.mData[1]);
+			}
 		}
 
 		item->indices.resize(mesh->GetPolygonVertexCount());
@@ -233,14 +256,13 @@ private:
 			}
 		}
 	}
-	void LoadAnim(FbxScene* scene, FbxMesh* mesh, Mesh* item)
+	void LoadAnim(FbxScene* scene, FbxMesh* mesh, Mesh* item, bool isOptimized)
 	{
 		int animNum = 0;
 
 		FbxArray<FbxString*> animStackList;
 		scene->FillAnimStackNameArray(animStackList);
 		FbxAnimStack* animStack = scene->FindMember<FbxAnimStack>(animStackList[animNum]->Buffer());
-		//scene->SetCurrentAnimationStack(animStack);
 		//FbxTakeInfo* takeInfo = scene->GetTakeInfo(*animStackList[animNum]);
 
 		float length = animStack->GetLocalTimeSpan().GetDuration().GetMilliSeconds() / 1000.0f;
@@ -254,10 +276,13 @@ private:
 		boneCount = skin->GetClusterCount();
 
 		std::vector<std::vector<int>> controlPointIndices;
-		controlPointIndices.resize(mesh->GetControlPointsCount());
-		for (int i = 0; i < mesh->GetPolygonVertexCount(); i++)
+		if (!isOptimized)
 		{
-			controlPointIndices[mesh->GetPolygonVertices()[i]].push_back(i);
+			controlPointIndices.resize(mesh->GetControlPointsCount());
+			for (int i = 0; i < mesh->GetPolygonVertexCount(); i++)
+			{
+				controlPointIndices[mesh->GetPolygonVertices()[i]].push_back(i);
+			}
 		}
 
 		FbxTime time;
@@ -294,8 +319,21 @@ private:
 
 				bones[j][boneIndex] = FbxMatrixToXMMatrix(vertexTransformMatrix);
 
-				AddBlendInPolygonVertex(boneIndex, cluster, item, controlPointIndices);
+				if (isOptimized)
+					AddBlendInControlPoint(boneIndex, cluster, item);
+				else
+					AddBlendInPolygonVertex(boneIndex, cluster, item, controlPointIndices);
 			}
+		}
+	}
+	void AddBlendInControlPoint(int blendIndex, FbxCluster* cluster, Mesh* item)
+	{
+		for (int i = 0; i < cluster->GetControlPointIndicesCount(); i++)
+		{
+			int index = cluster->GetControlPointIndices()[i];
+			float weight = (float)cluster->GetControlPointWeights()[i];
+
+			SearchBlendIndex(index, blendIndex, weight, item);
 		}
 	}
 	void AddBlendInPolygonVertex(int blendIndex, FbxCluster* cluster, Mesh* item, std::vector<std::vector<int>>& controlPointIndices)

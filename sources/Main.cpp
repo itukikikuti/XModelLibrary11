@@ -61,8 +61,8 @@ int MAIN()
 	Texture texture(L"assets/crab.jpg");
 	texture.Attach(0);
 
-	Model2 model(L"assets/crab.fbx");
-	//model.scale = 0.02f;
+	Model2 model(L"assets/humanoid.fbx");
+	model.scale = 0.05f;
 
 	while (App::Refresh())
 	{
