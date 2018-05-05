@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <forward_list>
 #include <fstream>
+#include <iostream>
 #include <memory>
 #include <string>
 #include <unordered_map>

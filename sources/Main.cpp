@@ -2,16 +2,11 @@
 #define XLIBRARY_NAMESPACE_END
 #include "XLibrary11.hpp"
 #include "Model.hpp"
+#include "Model2.hpp"
 #include "Library.cpp"
-#include <iomanip>
 
 using namespace std;
 using namespace XLibrary11;
-
-struct Constant
-{
-	XMMATRIX bone[100];
-};
 
 int MAIN()
 {
@@ -19,73 +14,15 @@ int MAIN()
 
 	Camera camera;
 	camera.SetDepthTest(true);
-	camera.SetPerspective(60.0f, 0.1f, 1000.0f);
-	camera.position = Float3(0.0f, 100.0f, -300.0f);
-	
-	Texture texture(L"assets/drone.jpg");
+	camera.SetPerspective(60.0f, 0.1f, 100.0f);
+	camera.position = Float3(0.0f, 3.0f, -5.0f);
+	camera.angles.x = 30.0f;
 
-	Mesh item;
-	item.angles.x = -90.0f;
-	item.GetMaterial().Load(L"assets/test.hlsl");
-	item.GetMaterial().SetTexture(0, &texture);
-	item.vertices.clear();
-	item.indices.clear();
-	item.Apply();
+	Texture texture(L"assets/crab.jpg");
+	texture.Attach(0);
 
-	FbxManager* fbxManager = nullptr;
-	FbxScene* fbxScene = nullptr;
-	FbxNode* meshNode = nullptr;
-	FbxMesh* mesh = nullptr;
-	int AnimStackNumber = 0;
-
-	fbxManager = FbxManager::Create();
-	fbxScene = FbxScene::Create(fbxManager, "");
-
-	FbxGeometryConverter converter(fbxManager);
-	converter.Triangulate(fbxScene, true);
-
-	FbxImporter* fbxImporter = FbxImporter::Create(fbxManager, "");
-	fbxImporter->Initialize("assets/drone.fbx", -1, fbxManager->GetIOSettings());
-	fbxImporter->Import(fbxScene);
-	fbxImporter->Destroy();
-
-	FbxArray<FbxString*> AnimStackNameArray;
-	fbxScene->FillAnimStackNameArray(AnimStackNameArray);
-	FbxAnimStack* AnimationStack = fbxScene->FindMember<FbxAnimStack>(AnimStackNameArray[AnimStackNumber]->Buffer());
-	fbxScene->SetCurrentAnimationStack(AnimationStack);
-
-	FbxTakeInfo* takeInfo = fbxScene->GetTakeInfo(*(AnimStackNameArray[AnimStackNumber]));
-
-	for (int i = 0; i < fbxScene->GetRootNode()->GetChildCount(); i++) {
-		if (fbxScene->GetRootNode()->GetChild(i)->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eMesh) {
-			meshNode = fbxScene->GetRootNode()->GetChild(i);
-			mesh = meshNode->GetMesh();
-			break;
-		}
-	}
-
-	item.vertices.resize(mesh->GetControlPointsCount());
-	for (int i = 0; i < mesh->GetControlPointsCount(); i++)
-	{
-
-		//FbxVector4 outVertex = clusterDeformation[temp][i].MultNormalize(mesh->GetControlPointAt(i));
-		FbxVector4 outVertex = mesh->GetControlPointAt(i);
-		item.vertices[i].position = Float3((float)outVertex[0], (float)outVertex[1], (float)outVertex[2]);
-
-		//FbxLayerElement::EMappingMode mappingMode = mesh->GetElementNormal()->GetMappingMode();
-		//FbxLayerElement::EReferenceMode referenceMode = mesh->GetElementNormal()->GetReferenceMode();
-		//FbxVector4 normal = mesh->GetElementNormal()->GetDirectArray().GetAt(i);
-		//item.vertices[i].normal = Float3(-normal.mData[0], normal.mData[1], -normal.mData[2]);
-		//XMVector3TransformCoord(item.vertices[i].normal, transform);
-
-		//FbxVector2 uv = mesh->GetElementUV()->GetDirectArray().GetAt(i);
-		//item.vertices[i].uv = Float2(uv.mData[0], 1.0f - uv.mData[1]);
-	}
-	item.indices.resize(mesh->GetPolygonVertexCount());
-	for (int i = 0; i < mesh->GetPolygonVertexCount(); i++)
-	{
-		item.indices[i] = mesh->GetPolygonVertices()[i];
-	}
+	/*FbxLayerElement::EMappingMode normalMappingMode = mesh->GetElementNormal()->GetMappingMode();
+	FbxLayerElement::EReferenceMode normalReferenceMode = mesh->GetElementNormal()->GetReferenceMode();
 
 	int index = 0;
 	for (int polygonIndex = 0; polygonIndex < mesh->GetPolygonCount(); polygonIndex++)
@@ -93,149 +30,57 @@ int MAIN()
 		int polygonSize = mesh->GetPolygonSize(polygonIndex);
 		for (int i = 0; i < polygonSize; i++)
 		{
-			//const XMMATRIX transform = Model::FbxMatrixToXMMatrix(mesh->GetNode()->EvaluateGlobalTransform());
-
 			FbxVector4 normal = mesh->GetElementNormal()->GetDirectArray().GetAt(index);
-			item.vertices[item.indices[index]].normal = Float3(normal.mData[0], normal.mData[1], normal.mData[2]);
-
-			FbxStringList uvSetNames;
-			mesh->GetUVSetNames(uvSetNames);
-			FbxVector2 uv;// = mesh->GetElementUV()->GetDirectArray().GetAt(index);
-			bool isMapped;
-			if (mesh->GetElementUVCount() > 0)
-				mesh->GetPolygonVertexUV(polygonIndex, i, uvSetNames[0], uv, isMapped);
-			item.vertices[item.indices[index]].uv = Float2(uv.mData[0], 1.0f - uv.mData[1]);
+			model2.vertices[model2.indices[index]].normal = Float3(normal.mData[0], normal.mData[1], normal.mData[2]);
 
 			index++;
 		}
 	}
 
-	item.Apply();
+	FbxLayerElement::EMappingMode uvMmappingMode = mesh->GetElementUV()->GetMappingMode();
+	FbxLayerElement::EReferenceMode uvReferenceMode = mesh->GetElementUV()->GetReferenceMode();
 
-	float length = AnimationStack->GetLocalTimeSpan().GetDuration().GetMilliSeconds() / 1000.0f;
-	const int tempSize = (int)(length * 60.0f);
-	vector<vector<XMMATRIX>> clusterDeformation;
-	clusterDeformation.resize(tempSize);
+	FbxGeometryElementUV* uvElement = mesh->GetElementUV();
+	bool useIndex = uvElement->GetReferenceMode() != FbxLayerElement::EReferenceMode::eDirect;
+	int indexCount = (useIndex) ? uvElement->GetIndexArray().GetCount() : 0;
 
-	FbxSkin* skinDeformer = (FbxSkin*)mesh->GetDeformer(0, FbxDeformer::eSkin);
-	int clusterCount = skinDeformer->GetClusterCount();
-
-	FbxTime time;
-
-	for (int i = 0; i < tempSize; i++)
+	index = 0;
+	for (int polygonIndex = 0; polygonIndex < mesh->GetPolygonCount(); polygonIndex++)
 	{
-		time.SetMilliSeconds(i / 60.0f * 1000.0f);
-
-		FbxMatrix globalPosition = meshNode->EvaluateGlobalTransform(time);
-		FbxVector4 t0 = meshNode->GetGeometricTranslation(FbxNode::eSourcePivot);
-		FbxVector4 r0 = meshNode->GetGeometricRotation(FbxNode::eSourcePivot);
-		FbxVector4 s0 = meshNode->GetGeometricScaling(FbxNode::eSourcePivot);
-		FbxAMatrix geometryOffset = FbxAMatrix(t0, r0, s0);
-
-		clusterDeformation[i].resize(clusterCount);
-		//memset(clusterDeformation[i].data(), 0, sizeof(FbxMatrix) * clusterCount);
-
-		for (int clusterIndex = 0; clusterIndex < clusterCount; clusterIndex++)
+		int polygonSize = mesh->GetPolygonSize(polygonIndex);
+		for (int i = 0; i < polygonSize; i++)
 		{
-			FbxCluster* cluster = skinDeformer->GetCluster(clusterIndex);
-
-			FbxMatrix vertexTransformMatrix;
-			FbxAMatrix referenceGlobalInitPosition;
-			FbxAMatrix clusterGlobalInitPosition;
-			FbxMatrix clusterGlobalCurrentPosition;
-			FbxMatrix clusterRelativeInitPosition;
-			FbxMatrix clusterRelativeCurrentPositionInverse;
-			cluster->GetTransformMatrix(referenceGlobalInitPosition);
-			referenceGlobalInitPosition *= geometryOffset;
-			cluster->GetTransformLinkMatrix(clusterGlobalInitPosition);
-			clusterGlobalCurrentPosition = cluster->GetLink()->EvaluateGlobalTransform(time);
-			clusterRelativeInitPosition = clusterGlobalInitPosition.Inverse() * referenceGlobalInitPosition;
-			clusterRelativeCurrentPositionInverse = globalPosition.Inverse() * clusterGlobalCurrentPosition;
-			vertexTransformMatrix = clusterRelativeCurrentPositionInverse * clusterRelativeInitPosition;
-
-			clusterDeformation[i][clusterIndex] = Model::FbxMatrixToXMMatrix(vertexTransformMatrix);
-
-			for (int j = 0; j < cluster->GetControlPointIndicesCount(); j++)
+			if (index < indexCount)
 			{
-				int index = cluster->GetControlPointIndices()[j];
-				float weight = (float)cluster->GetControlPointWeights()[j];
-				//FbxMatrix influence = vertexTransformMatrix * weight;
-				for (int k = 0; k < 8; k++)
-				{
-					if (item.vertices[index].blendIndices[k] == clusterIndex)
-						break;
+				int uvIndex = useIndex ? uvElement->GetIndexArray().GetAt(index) : index;
+				FbxVector2 uv = uvElement->GetDirectArray().GetAt(uvIndex);
+				model2.vertices[model2.indices[index]].uv = Float2(uv.mData[0], 1.0f - uv.mData[1]);
 
-					if (item.vertices[index].blendIndices[k] < 999)
-						continue;
-
-					item.vertices[index].blendIndices[k] = clusterIndex;
-					item.vertices[index].blendWeights[k] = weight;
-					break;
-				}
+				index++;
 			}
 		}
-	}
+	}*/
 
-	Constant constant;
-
-	item.Apply();
-	item.GetMaterial().SetBuffer(2, &constant, sizeof(Constant));
-
-	//Model model(L"assets/humanoid.fbx");
-	//model.angles.x = 90.0f;
-	//model.scale = 0.02f;
-	//for (int i = 0; i < model.meshes.size(); i++)
+	//Model1 model1(L"assets/crab.fbx");
+	//model1.angles.x = 180.0f;
+	////model.scale = 0.02f;
+	//for (int i = 0; i < model1.meshes.size(); i++)
 	//{
-	//	model.meshes[i]->GetMaterial().SetTexture(0, &texture);
-	//	model.meshes[i]->GetMaterial().Load(L"assets/test.hlsl");
+	//	model1.meshes[i]->GetMaterial().Load(L"assets/test.hlsl");
 	//}
 
-	//for (int i = 0; i < item.vertices.size(); i++)
-	//{
-	//	cout << "[" << setw(4) << setfill('0') << i << "] " << setfill(' ')
-	//		<< setw(10) << item.vertices[i].position.x << ","
-	//		<< setw(10) << item.vertices[i].position.y << ","
-	//		<< setw(10) << item.vertices[i].position.z << " "
-	//		<< setw(3) << item.vertices[i].blendIndices[0] << ","
-	//		<< setw(3) << item.vertices[i].blendIndices[1] << ","
-	//		<< setw(3) << item.vertices[i].blendIndices[2] << ","
-	//		<< setw(3) << item.vertices[i].blendIndices[3] << " "
-	//		<< setw(12) << item.vertices[i].blendWeights[0] << ","
-	//		<< setw(12) << item.vertices[i].blendWeights[1] << ","
-	//		<< setw(12) << item.vertices[i].blendWeights[2] << ","
-	//		<< setw(12) << item.vertices[i].blendWeights[3] << " "
-	//		<< setw(12) << item.vertices[i].blendWeights[0] + item.vertices[i].blendWeights[1] + item.vertices[i].blendWeights[2] + item.vertices[i].blendWeights[3] << endl;
-	//}
-
-	int temp = 0;
+	Model2 model2(L"assets/crab.fbx");
+	//model2.scale = 0.02f;
 
 	while (App::Refresh())
 	{
 		camera.Update();
 
-		temp++;
-		if (temp >= tempSize)
-			temp = 0;
+		model2.angles.y -= App::GetMousePosition().x * 0.3f;
+		model2.Draw();
 
-		for (int i = 0; i < clusterCount; i++)
-		{
-			constant.bone[i] = XMMatrixTranspose(
-				clusterDeformation[temp][i]
-			);
-		}
-
-		item.Apply();
-
-		item.angles.y += 1.0f;
-		item.Draw();
-
-		App::SetTitle(to_wstring(App::GetFrameRate()).c_str());
-		//model.angles.y += App::GetDeltaTime() * 50.0f;
-		//model.Draw();
+		App::SetMousePosition(0.0f, 0.0f);
 	}
-
-	fbxScene->Destroy();
-	fbxManager->Destroy();
 
 	return 0;
 }

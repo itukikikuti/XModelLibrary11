@@ -30,7 +30,7 @@ XLIBRARY_NAMESPACE_BEGIN
 
 using namespace DirectX;
 
-class Model
+class Model1
 {
 public:
 	XLibrary11::Float3 position;
@@ -38,16 +38,16 @@ public:
 	XLibrary11::Float3 scale;
 	std::vector<std::unique_ptr<XLibrary11::Mesh>> meshes;
 
-	Model()
+	Model1()
 	{
 		Initialize();
 	}
-	Model(const wchar_t* const filePath)
+	Model1(const wchar_t* const filePath)
 	{
 		Initialize();
 		Load(filePath);
 	}
-	virtual ~Model()
+	virtual ~Model1()
 	{
 	}
 	void Load(const wchar_t* const filePath)

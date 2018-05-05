@@ -9,7 +9,7 @@ cbuffer Object : register(b1)
 };
 cbuffer Animation : register(b2)
 {
-	matrix bone[100];
+	matrix bones[200];
 };
 Texture2D texture0 : register(t0);
 SamplerState sampler0 : register(s0);
@@ -60,8 +60,9 @@ Pixel VS(Vertex vertex)
 			if (weights[i] <= 0.0)
 				continue;
 
-			temp += bone[indices[i]] * weights[i];
+			temp += bones[indices[i]] * weights[i];
 		}
+
 		vertex.position = mul(vertex.position, temp);
 		vertex.position.w = 1.0;
 		vertex.normal = mul(vertex.normal, (float3x3)temp);
@@ -88,7 +89,5 @@ float4 PS(Pixel pixel) : SV_TARGET
 	float3 ambientIntensity = lightColor * 0.2;
 	float3 specularIntensity = pow(max(dot(viewDirection, reflection), 0.0), 50.0) * 10.0 * lightColor;
 
-	//return float4(diffuseIntensity + ambientIntensity, 1);
-	//return float4(diffuseIntensity + ambientIntensity + specularIntensity, 1);
 	return diffuseColor * float4(diffuseIntensity + ambientIntensity + specularIntensity, 1);
 }
