@@ -18,9 +18,6 @@ int MAIN()
 	camera.position = Float3(0.0f, 3.0f, -5.0f);
 	camera.angles.x = 30.0f;
 
-	Texture texture(L"assets/crab.jpg");
-	texture.Attach(0);
-
 	/*FbxLayerElement::EMappingMode normalMappingMode = mesh->GetElementNormal()->GetMappingMode();
 	FbxLayerElement::EReferenceMode normalReferenceMode = mesh->GetElementNormal()->GetReferenceMode();
 
@@ -61,23 +58,18 @@ int MAIN()
 		}
 	}*/
 
-	//Model1 model1(L"assets/crab.fbx");
-	//model1.angles.x = 180.0f;
-	////model.scale = 0.02f;
-	//for (int i = 0; i < model1.meshes.size(); i++)
-	//{
-	//	model1.meshes[i]->GetMaterial().Load(L"assets/test.hlsl");
-	//}
+	Texture texture(L"assets/crab.jpg");
+	texture.Attach(0);
 
-	Model2 model2(L"assets/crab.fbx");
-	//model2.scale = 0.02f;
+	Model2 model(L"assets/crab.fbx");
+	//model.scale = 0.02f;
 
 	while (App::Refresh())
 	{
 		camera.Update();
 
-		model2.angles.y -= App::GetMousePosition().x * 0.3f;
-		model2.Draw();
+		model.angles.y -= App::GetMousePosition().x * 0.3f;
+		model.Draw();
 
 		App::SetMousePosition(0.0f, 0.0f);
 	}
