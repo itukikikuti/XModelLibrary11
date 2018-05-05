@@ -58,11 +58,11 @@ int MAIN()
 		}
 	}*/
 
-	Texture texture(L"assets/crab.jpg");
+	Texture texture(L"assets/drone.jpg");
 	texture.Attach(0);
 
-	Model2 model(L"assets/humanoid.fbx");
-	model.scale = 0.05f;
+	Model2 model(L"assets/drone.fbx");
+	model.scale = 0.02f;
 
 	while (App::Refresh())
 	{

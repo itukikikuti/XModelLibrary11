@@ -67,16 +67,26 @@ public:
 		std::unique_ptr<FbxScene, FbxSceneDeleter> scene(FbxScene::Create(manager.get(), ""));
 		importer->Import(scene.get());
 
+		FbxAxisSystem axisSystem(FbxAxisSystem::eDirectX);
+		axisSystem.ConvertScene(scene.get());
+
+		FbxSystemUnit systemUnit(1.0);
+		systemUnit.ConvertScene(scene.get());
+
 		FbxGeometryConverter converter(manager.get());
 		converter.Triangulate(scene.get(), true);
 
 		SearchNode(scene.get(), scene->GetRootNode());
 	}
+	void Play()
+	{
+		startTime = App::GetTime();
+	}
 	void Draw()
 	{
-		frame++;
-		if (frame >= frameCount)
-			frame = 0;
+		float time = App::GetTime() - startTime;
+		int frame = (int)(time * 60.0f);
+		frame %= frameCount;
 
 		for (int i = 0; i < boneCount; i++)
 		{
@@ -124,7 +134,7 @@ private:
 	Constant constant;
 	std::vector<std::unique_ptr<Mesh>> meshes;
 	std::vector<std::vector<XMMATRIX>> bones;
-	int frame = 0;
+	float startTime = 0.0f;
 	int frameCount = 0;
 	int boneCount = 0;
 
