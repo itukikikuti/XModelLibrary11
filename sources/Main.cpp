@@ -8,7 +8,7 @@
 using namespace std;
 using namespace XLibrary11;
 
-int MAIN()
+int main()
 {
 	Library::Generate(L"sources/Model.hpp", L"XModelLibrary11.hpp");
 
@@ -58,15 +58,28 @@ int MAIN()
 		}
 	}*/
 
-	Texture texture(L"assets/drone.jpg");
+	Texture texture(L"assets/1.jpg");
 	texture.Attach(0);
 
-	Model2 model(L"assets/drone.fbx");
-	model.scale = 0.02f;
+	Model2 model(L"assets/humanoid.fbx");
+	model.scale = 0.05f;
 
 	while (App::Refresh())
 	{
 		camera.Update();
+
+		if (App::GetKeyDown('1'))
+		{
+			model.Play(0);
+		}
+		if (App::GetKeyDown('2'))
+		{
+			model.Play(1);
+		}
+		if (App::GetKeyDown('3'))
+		{
+			model.Play(2);
+		}
 
 		model.angles.y -= App::GetMousePosition().x * 0.3f;
 		model.Draw();
