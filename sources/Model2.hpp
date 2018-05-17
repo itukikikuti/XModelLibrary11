@@ -1,5 +1,5 @@
 ﻿// © 2017 itukikikuti
-// https://github.com/itukikikuti/XLibrary11
+// https://github.com/itukikikuti/XModelLibrary11
 // MIT License
 #pragma once
 
@@ -67,12 +67,11 @@ public:
 		std::unique_ptr<FbxScene, FbxSceneDeleter> scene(FbxScene::Create(manager.get(), ""));
 		importer->Import(scene.get());
 
-		FbxAxisSystem axisSystem(FbxAxisSystem::eDirectX);
-		axisSystem.ConvertScene(scene.get());
+		FbxAxisSystem::DirectX.ConvertScene(scene.get());
 
-		FbxSystemUnit systemUnit(1.0);
-		systemUnit.ConvertScene(scene.get());
-
+		//FbxSystemUnit systemUnit(1.0);
+		//systemUnit.ConvertScene(scene.get());
+		
 		FbxGeometryConverter converter(manager.get());
 		converter.Triangulate(scene.get(), true);
 
@@ -217,16 +216,18 @@ private:
 		{
 			FbxVector4 position = mesh->GetControlPointAt(i);
 			item->vertices[i].position = Float3(position[0], position[1], position[2]);
-
-			if (mesh->GetElementNormal() != nullptr)
+			
+			FbxGeometryElementNormal* normalElement = mesh->GetElementNormal();
+			if (normalElement != nullptr)
 			{
-				FbxVector4 normal = mesh->GetElementNormal()->GetDirectArray().GetAt(i);
+				FbxVector4 normal = normalElement->GetDirectArray().GetAt(i);
 				item->vertices[i].normal = Float3(normal.mData[0], normal.mData[1], normal.mData[2]);
 			}
 
-			if (mesh->GetElementUV() != nullptr)
+			FbxGeometryElementUV* uvElement = mesh->GetElementUV();
+			if (uvElement != nullptr)
 			{
-				FbxVector2 uv = mesh->GetElementUV()->GetDirectArray().GetAt(i);
+				FbxVector2 uv = uvElement->GetDirectArray().GetAt(i);
 				item->vertices[i].uv = Float2(uv.mData[0], 1.0f - uv.mData[1]);
 			}
 		}
@@ -240,6 +241,9 @@ private:
 	}
 	void LoadMeshWithPolygonVertex(FbxMesh* mesh, Mesh* item)
 	{
+		FbxStringList uvSetNames;
+		mesh->GetUVSetNames(uvSetNames);
+
 		for (int i = 0; i < mesh->GetPolygonCount(); i++)
 		{
 			for (int j = 0; j < mesh->GetPolygonSize(i); j++)
@@ -254,8 +258,6 @@ private:
 				mesh->GetPolygonVertexNormal(i, j, normal);
 				vertex.normal = Float3(normal.mData[0], normal.mData[1], normal.mData[2]);
 
-				FbxStringList uvSetNames;
-				mesh->GetUVSetNames(uvSetNames);
 				FbxVector2 uv;
 				bool isMapped;
 				if (mesh->GetElementUVCount() > 0)
@@ -272,67 +274,78 @@ private:
 
 		FbxArray<FbxString*> animStackList;
 		scene->FillAnimStackNameArray(animStackList);
-		FbxAnimStack* animStack = scene->FindMember<FbxAnimStack>(animStackList[animNum]->Buffer());
-		//FbxTakeInfo* takeInfo = scene->GetTakeInfo(*animStackList[animNum]);
+		printf("anim %d\n", animStackList.Size());
 
-		float length = animStack->GetLocalTimeSpan().GetDuration().GetMilliSeconds() / 1000.0f;
+		FbxAnimStack* animStack = scene->FindMember<FbxAnimStack>(animStackList[animNum]->Buffer());
+		scene->SetCurrentAnimationStack(animStack);
+
+		//FbxTakeInfo* takeInfo = scene->GetTakeInfo(*animStackList[animNum]);
+		//takeInfo->mLocalTimeSpan.GetStart();
+
+		FbxTime start = animStack->GetLocalTimeSpan().GetStart();
+		FbxTime stop = animStack->GetLocalTimeSpan().GetStop();
+		float length = (stop.GetMilliSeconds() - start.GetMilliSeconds()) / 1000.0f;
 		frameCount = (int)(length * 60.0f);
 		bones.resize(frameCount);
 
-		if (mesh->GetDeformerCount() <= 0)
-			return;
-
-		FbxSkin* skin = (FbxSkin*)mesh->GetDeformer(0, FbxDeformer::eSkin);
-		boneCount = skin->GetClusterCount();
-
-		std::vector<std::vector<int>> controlPointIndices;
-		if (!isOptimized)
+		printf("deformer %d\n", mesh->GetDeformerCount());
+		for (int i = 0; i < mesh->GetDeformerCount(); i++)
 		{
-			controlPointIndices.resize(mesh->GetControlPointsCount());
-			for (int i = 0; i < mesh->GetPolygonVertexCount(); i++)
+			FbxSkin* skin = (FbxSkin*)mesh->GetDeformer(i, FbxDeformer::eSkin);
+			if (skin == nullptr)
+				continue;
+
+			boneCount = skin->GetClusterCount();
+
+			std::vector<std::vector<int>> controlPointIndices;
+			if (!isOptimized)
 			{
-				controlPointIndices[mesh->GetPolygonVertices()[i]].push_back(i);
+				controlPointIndices.resize(mesh->GetControlPointsCount());
+				for (int i = 0; i < mesh->GetPolygonVertexCount(); i++)
+				{
+					controlPointIndices[mesh->GetPolygonVertices()[i]].push_back(i);
+				}
 			}
-		}
 
-		FbxTime time;
+			FbxTime time;
 
-		for (int j = 0; j < frameCount; j++)
-		{
-			time.SetMilliSeconds(j / 60.0f * 1000.0f);
-
-			FbxMatrix globalPosition = mesh->GetNode()->EvaluateGlobalTransform(time);
-			FbxVector4 translation = mesh->GetNode()->GetGeometricTranslation(FbxNode::eSourcePivot);
-			FbxVector4 rotation = mesh->GetNode()->GetGeometricRotation(FbxNode::eSourcePivot);
-			FbxVector4 scaling = mesh->GetNode()->GetGeometricScaling(FbxNode::eSourcePivot);
-			FbxAMatrix geometryOffset = FbxAMatrix(translation, rotation, scaling);
-
-			bones[j].resize(boneCount);
-
-			for (int boneIndex = 0; boneIndex < boneCount; boneIndex++)
+			for (int j = 0; j < frameCount; j++)
 			{
-				FbxCluster* cluster = skin->GetCluster(boneIndex);
+				time.SetMilliSeconds((j / 60.0f * 1000.0f) + start.GetMilliSeconds());
 
-				FbxMatrix vertexTransformMatrix;
-				FbxAMatrix referenceGlobalInitPosition;
-				FbxAMatrix clusterGlobalInitPosition;
-				FbxMatrix clusterGlobalCurrentPosition;
-				FbxMatrix clusterRelativeInitPosition;
-				FbxMatrix clusterRelativeCurrentPositionInverse;
-				cluster->GetTransformMatrix(referenceGlobalInitPosition);
-				referenceGlobalInitPosition *= geometryOffset;
-				cluster->GetTransformLinkMatrix(clusterGlobalInitPosition);
-				clusterGlobalCurrentPosition = cluster->GetLink()->EvaluateGlobalTransform(time);
-				clusterRelativeInitPosition = clusterGlobalInitPosition.Inverse() * referenceGlobalInitPosition;
-				clusterRelativeCurrentPositionInverse = globalPosition.Inverse() * clusterGlobalCurrentPosition;
-				vertexTransformMatrix = clusterRelativeCurrentPositionInverse * clusterRelativeInitPosition;
+				FbxMatrix globalPosition = mesh->GetNode()->EvaluateGlobalTransform(time);
+				FbxVector4 translation = mesh->GetNode()->GetGeometricTranslation(FbxNode::eSourcePivot);
+				FbxVector4 rotation = mesh->GetNode()->GetGeometricRotation(FbxNode::eSourcePivot);
+				FbxVector4 scaling = mesh->GetNode()->GetGeometricScaling(FbxNode::eSourcePivot);
+				FbxAMatrix geometryOffset = FbxAMatrix(translation, rotation, scaling);
 
-				bones[j][boneIndex] = FbxMatrixToXMMatrix(vertexTransformMatrix);
+				bones[j].resize(boneCount);
 
-				if (isOptimized)
-					AddBlendInControlPoint(boneIndex, cluster, item);
-				else
-					AddBlendInPolygonVertex(boneIndex, cluster, item, controlPointIndices);
+				for (int boneIndex = 0; boneIndex < boneCount; boneIndex++)
+				{
+					FbxCluster* cluster = skin->GetCluster(boneIndex);
+
+					FbxMatrix vertexTransformMatrix;
+					FbxAMatrix referenceGlobalInitPosition;
+					FbxAMatrix clusterGlobalInitPosition;
+					FbxMatrix clusterGlobalCurrentPosition;
+					FbxMatrix clusterRelativeInitPosition;
+					FbxMatrix clusterRelativeCurrentPositionInverse;
+					cluster->GetTransformMatrix(referenceGlobalInitPosition);
+					referenceGlobalInitPosition *= geometryOffset;
+					cluster->GetTransformLinkMatrix(clusterGlobalInitPosition);
+					clusterGlobalCurrentPosition = cluster->GetLink()->EvaluateGlobalTransform(time);
+					clusterRelativeInitPosition = clusterGlobalInitPosition.Inverse() * referenceGlobalInitPosition;
+					clusterRelativeCurrentPositionInverse = globalPosition.Inverse() * clusterGlobalCurrentPosition;
+					vertexTransformMatrix = clusterRelativeCurrentPositionInverse * clusterRelativeInitPosition;
+
+					bones[j][boneIndex] = FbxMatrixToXMMatrix(vertexTransformMatrix);
+
+					if (isOptimized)
+						AddBlendInControlPoint(boneIndex, cluster, item);
+					else
+						AddBlendInPolygonVertex(boneIndex, cluster, item, controlPointIndices);
+				}
 			}
 		}
 	}

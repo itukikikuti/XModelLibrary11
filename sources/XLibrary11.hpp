@@ -35,12 +35,12 @@
 #pragma comment(lib, "mfreadwrite.lib")
 #pragma comment(lib, "mfuuid.lib")
 
+#define MAIN() APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int)
+
 namespace XLibrary11
 {
 
 using namespace DirectX;
-
-#define MAIN() APIENTRY wWinMain(HINSTANCE, HINSTANCE, LPWSTR, int)
 
 struct Float2 : public DirectX::XMFLOAT2
 {
