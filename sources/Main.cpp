@@ -8,7 +8,7 @@
 using namespace std;
 using namespace XLibrary11;
 
-int main()
+int MAIN()
 {
 	Library::Generate(L"sources/Model.hpp", L"XModelLibrary11.hpp");
 
@@ -18,51 +18,14 @@ int main()
 	camera.position = Float3(0.0f, 3.0f, -5.0f);
 	camera.angles.x = 30.0f;
 
-	/*FbxLayerElement::EMappingMode normalMappingMode = mesh->GetElementNormal()->GetMappingMode();
-	FbxLayerElement::EReferenceMode normalReferenceMode = mesh->GetElementNormal()->GetReferenceMode();
-
-	int index = 0;
-	for (int polygonIndex = 0; polygonIndex < mesh->GetPolygonCount(); polygonIndex++)
-	{
-		int polygonSize = mesh->GetPolygonSize(polygonIndex);
-		for (int i = 0; i < polygonSize; i++)
-		{
-			FbxVector4 normal = mesh->GetElementNormal()->GetDirectArray().GetAt(index);
-			model2.vertices[model2.indices[index]].normal = Float3(normal.mData[0], normal.mData[1], normal.mData[2]);
-
-			index++;
-		}
-	}
-
-	FbxLayerElement::EMappingMode uvMmappingMode = mesh->GetElementUV()->GetMappingMode();
-	FbxLayerElement::EReferenceMode uvReferenceMode = mesh->GetElementUV()->GetReferenceMode();
-
-	FbxGeometryElementUV* uvElement = mesh->GetElementUV();
-	bool useIndex = uvElement->GetReferenceMode() != FbxLayerElement::EReferenceMode::eDirect;
-	int indexCount = (useIndex) ? uvElement->GetIndexArray().GetCount() : 0;
-
-	index = 0;
-	for (int polygonIndex = 0; polygonIndex < mesh->GetPolygonCount(); polygonIndex++)
-	{
-		int polygonSize = mesh->GetPolygonSize(polygonIndex);
-		for (int i = 0; i < polygonSize; i++)
-		{
-			if (index < indexCount)
-			{
-				int uvIndex = useIndex ? uvElement->GetIndexArray().GetAt(index) : index;
-				FbxVector2 uv = uvElement->GetDirectArray().GetAt(uvIndex);
-				model2.vertices[model2.indices[index]].uv = Float2(uv.mData[0], 1.0f - uv.mData[1]);
-
-				index++;
-			}
-		}
-	}*/
-
-	Texture texture(L"assets/1.jpg");
+	Texture texture(L"assets/crab.jpg");
 	texture.Attach(0);
 
-	Model2 model(L"assets/humanoid.fbx");
-	model.scale = 0.05f;
+	Model2 model(L"assets/crab.fbx");
+	//model.scale = 0.05f;
+
+    Mesh mesh;
+    mesh.CreateCube();
 
 	while (App::Refresh())
 	{
@@ -85,6 +48,8 @@ int main()
 		model.Draw();
 
 		App::SetMousePosition(0.0f, 0.0f);
+
+        mesh.Draw();
 	}
 
 	return 0;
