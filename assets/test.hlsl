@@ -98,8 +98,7 @@ float4 PS(Pixel pixel) : SV_TARGET
 
 	float3 lightDirection = normalize(float3(0.25, -1.0, 0.5));
 	float3 lightColor = float3(1.0, 1.0, 1.0);
-    //float4 diffuseColor = diffuseTexture.Sample(samp, pixel.uv);
-    float4 diffuseColor = float4(1, 1, 1, 1);
+    float4 diffuseColor = diffuseTexture.Sample(samp, pixel.uv);
 
 	float3 viewDirection = normalize(float3(0.0, 3.0, -5.0));
 	float3 reflection = reflect(lightDirection, normal);
