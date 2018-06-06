@@ -18,38 +18,27 @@ int MAIN()
 	camera.position = Float3(0.0f, 3.0f, -5.0f);
 	camera.angles.x = 30.0f;
 
-	Texture texture(L"assets/crab.jpg");
-	texture.Attach(0);
+	Texture diffuse(L"assets/crab_diffuse.jpg");
+    diffuse.Attach(0);
+
+    Texture glossiness(L"assets/crab_glossiness.jpg");
+    glossiness.Attach(1);
+
+    Texture normal(L"assets/crab_normal.jpg");
+    normal.Attach(2);
 
 	Model2 model(L"assets/crab.fbx");
 	//model.scale = 0.05f;
-
-    Mesh mesh;
-    mesh.CreateCube();
 
 	while (App::Refresh())
 	{
 		camera.Update();
 
-		if (App::GetKeyDown('1'))
-		{
-			model.Play(0);
-		}
-		if (App::GetKeyDown('2'))
-		{
-			model.Play(1);
-		}
-		if (App::GetKeyDown('3'))
-		{
-			model.Play(2);
-		}
-
-		model.angles.y -= App::GetMousePosition().x * 0.3f;
+        model.angles.x -= App::GetMousePosition().y * 0.3f;
+        model.angles.y -= App::GetMousePosition().x * 0.3f;
 		model.Draw();
 
 		App::SetMousePosition(0.0f, 0.0f);
-
-        mesh.Draw();
 	}
 
 	return 0;

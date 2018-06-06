@@ -272,6 +272,8 @@ private:
 					mesh->GetPolygonVertexUV(i, j, uvSetNames[0], uv, isMapped);
 				vertex.uv = Float2(uv.mData[0], 1.0f - uv.mData[1]);
 
+                vertex.tangent = XMVector3Cross(vertex.normal, Float3(0.0f, 1.0f, 0.0f));
+
 				item->vertices.push_back(vertex);
 			}
 		}

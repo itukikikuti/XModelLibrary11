@@ -11,13 +11,16 @@ cbuffer Animation : register(b2)
 {
 	matrix bones[200];
 };
-Texture2D texture0 : register(t0);
-SamplerState sampler0 : register(s0);
+SamplerState samp : register(s0);
+Texture2D diffuseTexture : register(t0);
+Texture2D glossinessTexture : register(t1);
+Texture2D normalTexture : register(t2);
 struct Vertex
 {
 	float4 position : POSITION;
 	float3 normal : NORMAL;
 	float2 uv : TEXCOORD;
+    float3 tangent : TANGENT;
 	uint4 blendIndices0 : BLENDINDICES0;
 	uint4 blendIndices1 : BLENDINDICES1;
 	float4 blendWeights0 : BLENDWEIGHT0;
@@ -28,6 +31,9 @@ struct Pixel
 	float4 position : SV_POSITION;
 	float3 normal : NORMAL;
 	float2 uv : TEXCOORD;
+    float3 tspace0 : TANGENT0;
+    float3 tspace1 : TANGENT1;
+    float3 tspace2 : TANGENT2;
 };
 Pixel VS(Vertex vertex)
 {
@@ -73,21 +79,35 @@ Pixel VS(Vertex vertex)
 	output.position = mul(output.position, projection);
 	output.normal = mul(vertex.normal, (float3x3)world);
 	output.uv = vertex.uv;
-	return output;
+
+    float3 bitangent = cross(output.normal, vertex.tangent);
+    output.tspace0 = float3(vertex.tangent.x, bitangent.x, output.normal.x);
+    output.tspace1 = float3(vertex.tangent.y, bitangent.y, output.normal.y);
+    output.tspace2 = float3(vertex.tangent.z, bitangent.z, output.normal.z);
+
+    return output;
 }
 float4 PS(Pixel pixel) : SV_TARGET
 {
-	float3 normal = normalize(pixel.normal);
+	float3 normal;
+    float3 normalMap = normalTexture.Sample(samp, pixel.uv).xyz;
+    normal.x = dot(pixel.tspace0, normalMap);
+    normal.y = dot(pixel.tspace1, normalMap);
+    normal.z = dot(pixel.tspace2, normalMap);
+    normal = normalize(normal);
+
 	float3 lightDirection = normalize(float3(0.25, -1.0, 0.5));
 	float3 lightColor = float3(1.0, 1.0, 1.0);
-	float4 diffuseColor = texture0.Sample(sampler0, pixel.uv);
+    //float4 diffuseColor = diffuseTexture.Sample(samp, pixel.uv);
+    float4 diffuseColor = float4(1, 1, 1, 1);
 
 	float3 viewDirection = normalize(float3(0.0, 3.0, -5.0));
 	float3 reflection = reflect(lightDirection, normal);
+    float glossiness = glossinessTexture.Sample(samp, pixel.uv).r;
 
 	float3 diffuseIntensity = dot(-lightDirection, normal) * lightColor;
 	float3 ambientIntensity = lightColor * 0.2;
-	float3 specularIntensity = pow(max(dot(viewDirection, reflection), 0.0), 50.0) * 10.0 * lightColor;
+	float3 specularIntensity = pow(max(dot(viewDirection, reflection), 0.0), glossiness * 100.0) * 10.0 * lightColor;
 
 	return diffuseColor * float4(diffuseIntensity + ambientIntensity + specularIntensity, 1);
 }
